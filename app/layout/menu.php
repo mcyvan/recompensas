@@ -35,7 +35,7 @@
               <li class="nav-item">
                 <a href="../clientes/registrar_cliente.php" class="nav-link">
                   <i class="bi bi-window-plus"></i>
-                  <p>ALTA CLIENTES</p>
+                  <p>ALTAs CLIENTES</p>
                 </a>
               </li>
             </ul>
