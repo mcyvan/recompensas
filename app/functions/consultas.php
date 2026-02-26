@@ -45,6 +45,30 @@ function obtenerUsuarios()
     $resultado = $consulta_login->fetchAll(PDO::FETCH_ASSOC);
     return $resultado;
 }
+function obtenerClientes()
+{
+    global $pdo;
+
+    $consulta_login = $pdo->prepare("SELECT 
+                                            tb_clientes.id_cliente,
+                                            tb_clientes.nombres,
+                                            tb_clientes.apellido_p,
+                                            tb_clientes.apellido_m,                                            
+                                            tb_clientes.telefono,                                            
+                                            tb_clientes.correo,
+                                            tb_clientes.fecha_nacimiento,
+                                            tb_clientes.fecha_registro,
+                                            tb_usuarios.usuario,
+                                            tb_usuarios.id_usuario                                           
+                                            FROM tb_usuarios 
+                                            INNER JOIN tb_clientes ON tb_clientes.id_usuario=tb_usuarios.id_usuario;");
+
+    $consulta_login->execute();
+
+    // Obtener el resultado
+    $resultado = $consulta_login->fetchAll(PDO::FETCH_ASSOC);
+    return $resultado;
+}
 
 function obtenerUsuario($id_usuario)
 {

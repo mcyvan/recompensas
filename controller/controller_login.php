@@ -65,7 +65,7 @@ if (!$resultado) {
         if ($_SESSION['rol'] == "ADMINISTRADOR") {
             header('Location: ../administracion/inicio.php');
         } else if ($_SESSION['rol'] == "VENDEDOR") {
-            header('Location: ../vendedor/inicio.php');
+            header('Location: ../clientes/registrar_cliente.php');
         }
         exit(); // Asegurarse de que no siga ejecutando código después de la redirección
     } else {
