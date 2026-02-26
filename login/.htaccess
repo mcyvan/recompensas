@@ -1,0 +1,2 @@
+# Redirige index.php en lugar de index.html
+DirectoryIndex index.php index.html

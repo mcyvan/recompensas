@@ -1,0 +1,78 @@
+<?php
+//RELACIONADO CON USUARIOS
+
+function obtenerRoles()
+{
+    global $pdo;
+
+    $query = $pdo->query("SELECT * FROM tb_roles;");
+    $roles = $query->fetchAll(PDO::FETCH_ASSOC);
+    return $roles;
+}
+function obtenerRolesID($id_rol)
+{
+    global $pdo;
+
+    $query = $pdo->prepare("SELECT tb_roles.id_rol, tb_roles.rol, tb_roles.estatus FROM tb_roles WHERE id_rol = ?");
+    $query->execute([$id_rol]);
+    $roles = $query->fetchAll(PDO::FETCH_ASSOC);
+    return $roles;
+}
+
+function obtenerUsuarios()
+{
+    global $pdo;
+
+    $consulta_login = $pdo->prepare("SELECT 
+                                            tb_usuarios_detalle.nombres,
+                                            tb_usuarios_detalle.apellido_p,
+                                            tb_usuarios_detalle.apellido_m,                                            
+                                            tb_usuarios_detalle.telefono,                                            
+                                            tb_usuarios_detalle.fecha_registro,
+                                            tb_usuarios.estatus,
+                                            tb_usuarios.usuario,
+                                            tb_usuarios.id_usuario,
+                                            tb_usuarios.password,
+                                            tb_roles.rol,
+                                            tb_roles.id_rol
+                                            FROM tb_usuarios 
+                                            INNER JOIN tb_usuarios_detalle ON tb_usuarios_detalle.id_usuario=tb_usuarios.id_usuario
+                                            INNER JOIN tb_roles ON tb_roles.id_rol=tb_usuarios_detalle.id_rol;");
+
+    $consulta_login->execute();
+
+    // Obtener el resultado
+    $resultado = $consulta_login->fetchAll(PDO::FETCH_ASSOC);
+    return $resultado;
+}
+
+function obtenerUsuario($id_usuario)
+{
+    global $pdo;
+
+    // 1. Usamos placeholders (?) para evitar inyección SQL
+    $sql = "SELECT 
+                tb_usuarios_detalle.nombres,
+                tb_usuarios_detalle.apellido_p,
+                tb_usuarios_detalle.apellido_m,                                            
+                tb_usuarios_detalle.telefono,                                            
+                tb_usuarios_detalle.fecha_registro,
+                tb_usuarios.estatus,
+                tb_usuarios.usuario,
+                tb_usuarios.id_usuario,
+                tb_usuarios.password,
+                tb_roles.rol,
+                tb_roles.id_rol
+            FROM tb_usuarios 
+            INNER JOIN tb_usuarios_detalle ON tb_usuarios_detalle.id_usuario = tb_usuarios.id_usuario
+            INNER JOIN tb_roles ON tb_roles.id_rol = tb_usuarios_detalle.id_rol
+            WHERE  tb_usuarios.id_usuario = ?";
+
+    $query = $pdo->prepare($sql);
+    $query->execute([$id_usuario]); // 2. Pasamos el ID aquí de forma segura
+
+    // 3. Usamos fetch() porque solo esperamos un resultado
+    $usuario = $query->fetchAll(PDO::FETCH_ASSOC);
+
+    return $usuario;
+}

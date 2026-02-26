@@ -1,0 +1,22 @@
+[15-Apr-2025 13:22:58 America/Mexico_City] PHP Fatal error:  Uncaught Error: Call to undefined function obtenerPlanProduccionOeste() in /home/concretosamerica/public_html/produccionblock/configuracion/editar_plan_oeste.php:7
+Stack trace:
+#0 {main}
+  thrown in /home/concretosamerica/public_html/produccionblock/configuracion/editar_plan_oeste.php on line 7
+[15-Apr-2025 13:27:10 America/Mexico_City] PHP Fatal error:  Uncaught Error: Call to undefined function obtenerPlanProduccionOeste() in /home/concretosamerica/public_html/produccionblock/configuracion/editar_plan_oeste.php:7
+Stack trace:
+#0 {main}
+  thrown in /home/concretosamerica/public_html/produccionblock/configuracion/editar_plan_oeste.php on line 7
+[15-Apr-2025 13:27:18 America/Mexico_City] PHP Fatal error:  Uncaught Error: Call to undefined function obtenerPlanProduccionOeste() in /home/concretosamerica/public_html/produccionblock/configuracion/editar_plan_oeste.php:7
+Stack trace:
+#0 {main}
+  thrown in /home/concretosamerica/public_html/produccionblock/configuracion/editar_plan_oeste.php on line 7
+[15-Apr-2025 13:27:41 America/Mexico_City] PHP Fatal error:  Uncaught Error: Call to undefined function obtenerPlanProduccionOeste() in /home/concretosamerica/public_html/produccionblock/configuracion/editar_plan_oeste.php:7
+Stack trace:
+#0 {main}
+  thrown in /home/concretosamerica/public_html/produccionblock/configuracion/editar_plan_oeste.php on line 7
+[15-Apr-2025 13:41:09 America/Mexico_City] PHP Warning:  Undefined variable $id_plan_produccion in /home/concretosamerica/public_html/produccionblock/configuracion/editar_plan_sur.php on line 7
+[15-Apr-2025 13:41:09 America/Mexico_City] PHP Warning:  Undefined variable $id_plan_produccion in /home/concretosamerica/public_html/produccionblock/configuracion/editar_plan_sur.php on line 69
+[15-Apr-2025 13:41:09 America/Mexico_City] PHP Warning:  Undefined variable $id_plan_produccion in /home/concretosamerica/public_html/produccionblock/configuracion/editar_plan_sur.php on line 80
+[15-Apr-2025 13:41:09 America/Mexico_City] PHP Warning:  Undefined variable $id_producto in /home/concretosamerica/public_html/produccionblock/configuracion/editar_plan_sur.php on line 83
+[15-Apr-2025 13:41:09 America/Mexico_City] PHP Warning:  Undefined variable $producto in /home/concretosamerica/public_html/produccionblock/configuracion/editar_plan_sur.php on line 83
+[15-Apr-2025 13:41:09 America/Mexico_City] PHP Warning:  Undefined variable $fecha_plan in /home/concretosamerica/public_html/produccionblock/configuracion/editar_plan_sur.php on line 92
