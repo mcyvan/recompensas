@@ -2,7 +2,7 @@
 session_start();
 ?>
 <!doctype html>
-<html lang="en">
+<html lang="es">
 <!--begin::Head-->
 <?php include("../app/layout/head.php"); ?>
 <!--end::Head-->

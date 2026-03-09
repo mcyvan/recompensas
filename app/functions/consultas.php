@@ -9,6 +9,8 @@ function obtenerRoles()
     $roles = $query->fetchAll(PDO::FETCH_ASSOC);
     return $roles;
 }
+
+
 function obtenerRolesID($id_rol)
 {
     global $pdo;
@@ -45,6 +47,8 @@ function obtenerUsuarios()
     $resultado = $consulta_login->fetchAll(PDO::FETCH_ASSOC);
     return $resultado;
 }
+
+
 function obtenerClientes()
 {
     global $pdo;
@@ -58,6 +62,7 @@ function obtenerClientes()
                                             tb_clientes.correo,
                                             tb_clientes.fecha_nacimiento,
                                             tb_clientes.fecha_registro,
+                                            tb_clientes.estatus,
                                             tb_usuarios.usuario,
                                             tb_usuarios.id_usuario                                           
                                             FROM tb_usuarios 
@@ -68,6 +73,49 @@ function obtenerClientes()
     // Obtener el resultado
     $resultado = $consulta_login->fetchAll(PDO::FETCH_ASSOC);
     return $resultado;
+}
+
+function obtenerClientesID($id_cliente)
+{
+    global $pdo;
+
+    $consulta_login = $pdo->prepare("SELECT 
+                                            tb_clientes.id_cliente,
+                                            tb_clientes.nombres,
+                                            tb_clientes.apellido_p,
+                                            tb_clientes.apellido_m,                                            
+                                            tb_clientes.telefono,                                            
+                                            tb_clientes.correo,
+                                            tb_clientes.fecha_nacimiento,
+                                            tb_clientes.fecha_registro,
+                                            tb_clientes.estatus,
+                                            tb_usuarios.usuario,
+                                            tb_usuarios.id_usuario                                           
+                                            FROM tb_usuarios 
+                                            INNER JOIN tb_clientes ON tb_clientes.id_usuario=tb_usuarios.id_usuario;");
+
+    $consulta_login->execute();
+
+    // Obtener el resultado
+    $resultado = $consulta_login->fetchAll(PDO::FETCH_ASSOC);
+    return $resultado;
+}
+
+
+
+function obtenerTotalClientes($vendedor)
+{
+    global $pdo;
+
+    $consulta_login = $pdo->prepare("SELECT COUNT(*) as total_clientes FROM tb_usuarios 
+                                            INNER JOIN tb_clientes ON tb_clientes.id_usuario=tb_usuarios.id_usuario
+                                            WHERE tb_usuarios.usuario = ?");
+
+    $consulta_login->execute([$vendedor]);
+
+    // Obtener el resultado
+    $resultado = $consulta_login->fetch(PDO::FETCH_ASSOC);
+    return $resultado['total_clientes'];
 }
 
 function obtenerUsuario($id_usuario)

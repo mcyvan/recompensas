@@ -71,7 +71,7 @@
               </li>
             </ul>
           </li>
-          <li class="nav-item">
+          <!-- <li class="nav-item">
             <a href="#" class="nav-link">
               <i class="bi bi-journals"></i>
               <p>CATALOGOS<i class="nav-arrow bi bi-chevron-right"></i></p>
@@ -92,9 +92,9 @@
                 </a>
               </li>
             </ul>
-          </li>
+          </li> -->
 
-          <li class="nav-item">
+          <!-- <li class="nav-item">
             <a href="#" class="nav-link">
               <i class="bi bi-calendar2-week"></i>
               <p>CAPTURA PLAN PROD<i class="nav-arrow bi bi-chevron-right"></i></p>
@@ -115,9 +115,9 @@
                 </a>
               </li>
             </ul>
-          </li>
+          </li> -->
         <?php
-        } elseif ($_SESSION['rol'] == "VENDEDOR") {; ?>
+        } elseif ($_SESSION['rol'] == "VENDEDORES") {; ?>
           <li class="nav-item">
             <a href="../clientes/registrar_cliente.php" class="nav-link">
               <i class="bi bi-window-plus"></i>

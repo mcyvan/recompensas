@@ -42,12 +42,6 @@ session_start();
 </head>
 <!--end::Head-->
 <!--begin::Body-->
-<script>
-  // Mostrar mensaje de error si existe
-  <?php if ($error_usuarios): ?>
-    alert("<?php echo $error_usuarios; ?>");
-  <?php endif; ?>
-</script>
 
 <body class="login-page bg-body-secondary">
   <div class="login-box">

@@ -48,7 +48,7 @@ if (!$resultado) {
 
         // Si la contraseña es correcta, asignamos los datos a las variables de sesión
         $nombre = $resultado['nombres'] . " " . $resultado['apellido_p'] . " " . $resultado['apellido_m'];
-        $correo = $resultado['correo'];
+
         $telefono = $resultado['telefono'];
         $id_usuario = $resultado['id_usuario'];
         $rol = $resultado['rol'];
@@ -56,7 +56,6 @@ if (!$resultado) {
         // Asignamos los datos a la sesión
         $_SESSION['rol'] = $rol;
         $_SESSION['nombre'] = $nombre;
-        $_SESSION['correo'] = $correo;
         $_SESSION['id_usuario_login'] = $id_usuario;
         $_SESSION['usuario'] = $usuario;
 
@@ -65,7 +64,7 @@ if (!$resultado) {
         if ($_SESSION['rol'] == "ADMINISTRADOR") {
             header('Location: ../administracion/inicio.php');
         } else if ($_SESSION['rol'] == "VENDEDOR") {
-            header('Location: ../clientes/registrar_cliente.php');
+            header('Location: ../vendedor/menu_vendedor.php');
         }
         exit(); // Asegurarse de que no siga ejecutando código después de la redirección
     } else {

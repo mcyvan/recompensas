@@ -7,7 +7,7 @@ define('USUARIO', 'root');
 define('PASSWORD', '');
 // define('PASSWORD', 'C0ncr3t0s2024');
 define('BD', 'recompensas');
-// define('BD', 'concretosamerica_produccionblock');
+// define('BD', 'concretosamerica_recompensas');
 date_default_timezone_set('America/Mexico_City');
 $URL = '/recompensas';
 $servidor = 'mysql:dbname=' . BD . ';host=' . SERVIDOR;
