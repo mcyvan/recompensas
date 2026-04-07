@@ -64,7 +64,7 @@ session_start();
             <div class="input-group-text"><span class="bi bi-person-fill"></span></div>
           </div>
 
-          <div class="input-group mb-1">
+          <div class="input-group mb-2">
             <div class="form-floating">
               <input id="loginPassword" type="password" name="password" class="form-control" placeholder="Contraseña" required />
               <label for="loginPassword">Contraseña</label>
@@ -72,7 +72,7 @@ session_start();
             <div class="input-group-text"><span class="bi bi-lock-fill"></span></div>
           </div>
 
-          <div class="row">
+          <div class="row mb-2">
             <div class="col-6">
               <div class="d-grid gap-4">
                 <button type="submit" class="btn btn-primary">Iniciar Sesión</button>

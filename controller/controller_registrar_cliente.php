@@ -32,7 +32,7 @@ try {
         $_SESSION['mensaje_registro_cliente_existe'] = "El cliente ya existe";
         if ($_SESSION['rol'] == "VENDEDOR") {
             header('Location: ' . $URL . '/vendedor/menu_vendedor.php');
-        } elseif ($_SESSION['rol'] == "ADMINISTRADOR") {
+        } elseif ($_SESSION['rol'] == "ADMINISTRADOR" || $_SESSION['rol'] == "ADMINISTRACION") {
             header('Location: ' . $URL . '/clientes/registrar_cliente.php');
             exit();
         }
@@ -65,7 +65,7 @@ try {
     $_SESSION['mensaje_registro_clientes_correcto'] = "Cliente " . $nombre . " " . $apellido_p . " " . $apellido_m . " registrado correctamente con telefono: " . $telefono;
     if ($_SESSION['rol'] == "VENDEDOR") {
         header('Location: ' . $URL . '/vendedor/menu_vendedor.php');
-    } elseif ($_SESSION['rol'] == "ADMINISTRADOR") {
+    } elseif ($_SESSION['rol'] == "ADMINISTRADOR" || $_SESSION['rol'] == "ADMINISTRACION") {
         header('Location: ' . $URL . '/clientes/registrar_cliente.php');
         exit();
     }

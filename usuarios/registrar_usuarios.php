@@ -268,93 +268,23 @@ if (isset($_SESSION['mensaje_registro_usuario_eliminado'])) {
       <!--end::App Content-->
     </main>
     <!--end::App Main-->
-    <script>
-      $(document).ready(function() {
-        document.getElementById('exportExcel').addEventListener('click', function() {
-          var table = document.getElementById('tablaUsuarios');
 
-          // Filtrar las filas que quieres exportar
-          var filteredRows = [];
-          var headerRow = table.rows[0]; // Primera fila de la tabla (encabezados)
-          var headerIndex = []; // Índices de las columnas que quieres incluir
-
-          // Recorrer el encabezado para encontrar las columnas deseadas
-          var desiredHeaders = [
-            "#", "Fecha", "Mes", "Placas", "Meta", "Eficiencia", "Personal T.E",
-            "Planta", "Tipo Block", "No. Piezas", "Costo Total", "Costo Directo",
-            "Costo - EF", "Tiempo Extra", "$ Eficiencia", "Horas"
-          ];
-
-          for (var i = 0; i < headerRow.cells.length; i++) {
-            var headerText = headerRow.cells[i].textContent.trim(); // Elimina espacios antes y después del texto del encabezado
-            if (desiredHeaders.includes(headerText)) {
-              headerIndex.push(i); // Almacenar los índices de las columnas deseadas
-            }
-          }
-
-          // Recorre las filas de la tabla y selecciona solo las columnas deseadas
-          for (var i = 1; i < table.rows.length; i++) { // Comienza desde 1 para omitir la fila de encabezado
-            var rowData = [];
-            for (var j = 0; j < headerIndex.length; j++) {
-              rowData.push(table.rows[i].cells[headerIndex[j]].textContent); // Obtener los valores de las celdas seleccionadas
-            }
-            filteredRows.push(rowData);
-          }
-
-          // Crear una nueva tabla solo con las columnas seleccionadas
-          var newTable = document.createElement('table');
-          var newHeaderRow = newTable.insertRow();
-
-          // Agregar los encabezados seleccionados
-          headerIndex.forEach(index => {
-            newHeaderRow.insertCell().textContent = headerRow.cells[index].textContent.trim(); // Agregar encabezados seleccionados
-          });
-
-          // Agregar las filas filtradas a la nueva tabla
-          filteredRows.forEach(row => {
-            var newRow = newTable.insertRow();
-            row.forEach(cell => {
-              newRow.insertCell().textContent = cell;
-            });
-          });
-
-          // Convertir la nueva tabla a un archivo de Excel
-          var wb = XLSX.utils.table_to_book(newTable, {
-            sheet: "Sheet 1"
-          });
-          XLSX.writeFile(wb, 'tabla_usuarios.xlsx');
-        });
-
-
-
-
-        $('#tablaUsuarios').DataTable({
-
-
-          "language": {
-            "lengthMenu": "Mostrar _MENU_ registros por página",
-            "zeroRecords": "Nada encontrado - lo siento",
-            "info": "Mostrando la página _PAGE_ de _PAGES_",
-            "infoEmpty": "No hay registros disponibles",
-            "infoFiltered": "(filtrado de _MAX_ registros totales)",
-            "search": "Buscar:",
-            "paginate": {
-              "first": "Primero",
-              "last": "Último",
-              "next": "Siguiente",
-              "previous": "Anterior"
-            },
-          }
-        });
-
-      });
-    </script>
     <!--begin::Footer-->
     <?php include("../app/layout/footer.php"); ?>
     <!--end::Footer-->
   </div>
   <!--end::App Wrapper-->
   <?php include("../app/layout/footer_links.php"); ?>
+  <script>
+    $(document).ready(function() {
+      $('#tablaUsuarios').DataTable({
+        "language": {
+          "url": "//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json"
+        }
+      });
+    });
+  </script>
+
 
 </body>
 <!--end::Body-->

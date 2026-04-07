@@ -118,7 +118,7 @@ foreach ($usuarios as $usuario) {
                     </div>
                     <div class="col-md-3">
                       <label for="" class="form-label"><b>Password</b></label>
-                      <input type="password" class="form-control" id="" value="" name="password" placeholder="Solo llenar para actualizar " required>
+                      <input type="password" class="form-control" id="" value="" name="password" placeholder="Solo llenar para actualizar ">
                     </div>
                     <div class="col-md-3">
                       <label for="" class="form-label"><b>Estatus</b></label>

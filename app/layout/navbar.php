@@ -32,7 +32,7 @@
             <b>Usuario:</b> <?php echo $_SESSION['usuario']; ?>
           </p>
 
-        <?php } elseif ($_SESSION['rol'] == "VENDEDOR") { ?>
+        <?php } elseif ($_SESSION['rol'] == "VENDEDOR" || $_SESSION['rol'] == "ADMINISTRACION") { ?>
 
           <p>
             <?php echo $_SESSION['nombre']; ?>
@@ -43,7 +43,9 @@
           </p>
 
           <p>
-            <b>Clientes:</b> <?php echo $_SESSION['clientes']; ?>
+            <b>Clientes:</b> <?php if (isset($_SESSION['clientes'])) {
+                                echo $_SESSION['clientes'];
+                              } ?>
           </p>
 
         <?php } ?>

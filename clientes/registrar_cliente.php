@@ -200,7 +200,7 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
                 <!--begin::Container-->
                 <div class="container-fluid">
                     <!--begin::Row-->
-                    <?php if ($_SESSION['rol'] == "ADMINISTRADOR") { ?>
+                    <?php if ($_SESSION['rol'] == "ADMINISTRADOR" || $_SESSION['rol'] == "ADMINISTRACION") { ?>
                         <div class="row justify-content-center align-items-center">
                             <div class="card card-danger card-outline mb-4 col-sm-12">
                                 <!--begin::Header-->

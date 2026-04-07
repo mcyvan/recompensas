@@ -125,8 +125,30 @@
             </a>
           </li>
 
-        <?php } elseif ($_SESSION['rol'] == "ADMINISTRADOR") {; ?>
-
+        <?php } elseif ($_SESSION['rol'] == "ADMINISTRACION") {; ?>
+          <li class="nav-header">CLIENTES</li>
+          <li class="nav-item">
+            <a href="#" class="nav-link">
+              <i class="bi bi-window-plus"></i>
+              <p>CLIENTES<i class="nav-arrow bi bi-chevron-right"></i></p>
+            </a>
+            <ul class="nav nav-treeview">
+              <li class="nav-item">
+                <a href="../clientes/registrar_cliente.php" class="nav-link">
+                  <i class="bi bi-window-plus"></i>
+                  <p>ALTA CLIENTES</p>
+                </a>
+              </li>
+            </ul>
+            <!-- <ul class="nav nav-treeview">
+              <li class="nav-item">
+                <a href="../captura/captura_produccion_sur.php" class="nav-link">
+                  <i class="bi bi-window-plus"></i>
+                  <p>CONSULTA PUNTOS</p>
+                </a>
+              </li>
+            </ul> -->
+          </li>
 
         <?php } ?>
       </ul>
