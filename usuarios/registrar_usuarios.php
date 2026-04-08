@@ -43,7 +43,7 @@ if (isset($_SESSION['mensaje_registro_usuario_eliminado'])) {
 <!--end::Head-->
 <!--begin::Body-->
 
-<body class="layout-fixed sidebar-expand-lg bg-body-tertiary">
+<body class="layout-fixed sidebar-expand-lg sidebar-mini sidebar-collapse sidebar-mini-expand-feature bg-body-tertiary">
   <?php if ($mensaje_registro_usuario_correcto): ?>
     <script>
       Swal.fire({
@@ -215,49 +215,51 @@ if (isset($_SESSION['mensaje_registro_usuario_eliminado'])) {
               </div>
               <!--end::Header-->
               <div class="card-body p-1">
-                <table id="tablaUsuarios" class="hover" style="width:100%">
-                  <thead>
-                    <tr>
-                      <th style="width: 10px">#</th>
-                      <th>Nombre</th>
-                      <th>Apellido P</th>
-                      <th>Apellido M</th>
-                      <th>Usuario</th>
-                      <th>Rol</th>
-                      <th>Estatus</th>
-                      <th>Fecha Registro</th>
-                      <th>Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <?php
-                    $cont_usuarios = 0;
-                    foreach ($usuarios as $usuario) {
-                      $cont_usuarios = $cont_usuarios + 1;
-                    ?>
+                <div class="table-responsive">
+                  <table id="tablaUsuarios" class="table table-striped table-bordered" style="width:100%">
+                    <thead>
                       <tr>
-                        <td><?php echo $cont_usuarios; ?></td>
-                        <td><?php echo $usuario['nombres']; ?></td>
-                        <td><?php echo $usuario['apellido_p']; ?></td>
-                        <td><?php echo $usuario['apellido_m']; ?></td>
-                        <td><?php echo $usuario['usuario']; ?></td>
-                        <td><?php echo $usuario['rol']; ?></td>
-                        <td><?php echo $usuario['estatus'] == 1 ? 'Activo' : 'Inactivo'; ?></td>
-                        <td><?php echo $usuario['fecha_registro']; ?></td>
-                        <td><a href="../controller/controller_eliminar_usuario.php?id_usuario=<?php echo $usuario['id_usuario']; ?>" class="btn btn-outline-danger"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-person-dash-fill" viewBox="0 0 16 16">
-                              <path fill-rule="evenodd" d="M11 7.5a.5.5 0 0 1 .5-.5h4a.5.5 0 0 1 0 1h-4a.5.5 0 0 1-.5-.5" />
-                              <path d="M1 14s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6" />
-                            </svg></a>
-                          <a href="../usuarios/editar_usuario.php?id_usuario=<?php echo $usuario['id_usuario']; ?>" class="btn btn-outline-warning"><svg fill="currentColor" width="16" height="16" viewBox="0 0 640 640" xmlns="http://www.w3.org/2000/svg">
-                              <path d="M224 256c70.7 0 128-57.3 128-128S294.7 0 224 0 96 57.3 96 128s57.3 128 128 128zm89.6 32h-16.7c-22.2 10.2-46.9 16-72.9 16s-50.6-5.8-72.9-16h-16.7C60.2 288 0 348.2 0 422.4V464c0 26.5 21.5 48 48 48h274.9c-2.4-6.8-3.4-14-2.6-21.3l6.8-60.9 1.2-11.1 7.9-7.9 77.3-77.3c-24.5-27.7-60-45.5-99.9-45.5zm45.3 145.3l-6.8 61c-1.1 10.2 7.5 18.8 17.6 17.6l60.9-6.8 137.9-137.9-71.7-71.7-137.9 137.8zM633 268.9L595.1 231c-9.3-9.3-24.5-9.3-33.8 0l-37.8 37.8-4.1 4.1 71.8 71.7 41.8-41.8c9.3-9.4 9.3-24.5 0-33.9z" />
-                            </svg></a>
-                        </td>
+                        <th style="width: 10px">#</th>
+                        <th>Nombre</th>
+                        <th>Apellido P</th>
+                        <th>Apellido M</th>
+                        <th>Usuario</th>
+                        <th>Rol</th>
+                        <th>Estatus</th>
+                        <th>Fecha Registro</th>
+                        <th>Acciones</th>
                       </tr>
-                    <?php
-                    }
-                    ?>
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      <?php
+                      $cont_usuarios = 0;
+                      foreach ($usuarios as $usuario) {
+                        $cont_usuarios = $cont_usuarios + 1;
+                      ?>
+                        <tr>
+                          <td><?php echo $cont_usuarios; ?></td>
+                          <td><?php echo $usuario['nombres']; ?></td>
+                          <td><?php echo $usuario['apellido_p']; ?></td>
+                          <td><?php echo $usuario['apellido_m']; ?></td>
+                          <td><?php echo $usuario['usuario']; ?></td>
+                          <td><?php echo $usuario['rol']; ?></td>
+                          <td><?php echo $usuario['estatus'] == 1 ? 'Activo' : 'Inactivo'; ?></td>
+                          <td><?php echo $usuario['fecha_registro']; ?></td>
+                          <td><a href="../controller/controller_eliminar_usuario.php?id_usuario=<?php echo $usuario['id_usuario']; ?>" class="btn btn-outline-danger"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-person-dash-fill" viewBox="0 0 16 16">
+                                <path fill-rule="evenodd" d="M11 7.5a.5.5 0 0 1 .5-.5h4a.5.5 0 0 1 0 1h-4a.5.5 0 0 1-.5-.5" />
+                                <path d="M1 14s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6" />
+                              </svg></a>
+                            <a href="../usuarios/editar_usuario.php?id_usuario=<?php echo $usuario['id_usuario']; ?>" class="btn btn-outline-warning"><svg fill="currentColor" width="16" height="16" viewBox="0 0 640 640" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M224 256c70.7 0 128-57.3 128-128S294.7 0 224 0 96 57.3 96 128s57.3 128 128 128zm89.6 32h-16.7c-22.2 10.2-46.9 16-72.9 16s-50.6-5.8-72.9-16h-16.7C60.2 288 0 348.2 0 422.4V464c0 26.5 21.5 48 48 48h274.9c-2.4-6.8-3.4-14-2.6-21.3l6.8-60.9 1.2-11.1 7.9-7.9 77.3-77.3c-24.5-27.7-60-45.5-99.9-45.5zm45.3 145.3l-6.8 61c-1.1 10.2 7.5 18.8 17.6 17.6l60.9-6.8 137.9-137.9-71.7-71.7-137.9 137.8zM633 268.9L595.1 231c-9.3-9.3-24.5-9.3-33.8 0l-37.8 37.8-4.1 4.1 71.8 71.7 41.8-41.8c9.3-9.4 9.3-24.5 0-33.9z" />
+                              </svg></a>
+                          </td>
+                        </tr>
+                      <?php
+                      }
+                      ?>
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </div>

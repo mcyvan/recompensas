@@ -34,15 +34,15 @@
             <ul class="nav nav-treeview">
               <li class="nav-item">
                 <a href="../clientes/registrar_cliente.php" class="nav-link">
-                  <i class="bi bi-window-plus"></i>
+                  <i class="bi bi-person-plus"></i>
                   <p>ALTA CLIENTES</p>
                 </a>
               </li>
             </ul>
             <ul class="nav nav-treeview">
               <li class="nav-item">
-                <a href="../captura/captura_produccion_sur.php" class="nav-link">
-                  <i class="bi bi-window-plus"></i>
+                <a href="../clientes/consultar_puntos.php" class="nav-link">
+                  <i class="bi bi-search"></i>
                   <p>CONSULTA PUNTOS</p>
                 </a>
               </li>

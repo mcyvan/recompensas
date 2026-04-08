@@ -42,7 +42,7 @@ if (isset($_SESSION['mensaje_registro_rol_eliminado'])) {
 <!--end::Head-->
 <!--begin::Body-->
 
-<body class="layout-fixed sidebar-expand-lg bg-body-tertiary">
+<body class="layout-fixed sidebar-expand-lg sidebar-mini sidebar-collapse sidebar-mini-expand-feature bg-body-tertiary">
     <?php if ($mensaje_registro_rol_correcto): ?>
         <script>
             document.addEventListener('DOMContentLoaded', function() {

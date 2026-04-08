@@ -81,7 +81,7 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
     </style>
 </head>
 
-<body class="hold-transition sidebar-mini layout-fixed">
+<body class="layout-fixed sidebar-expand-lg sidebar-mini sidebar-collapse sidebar-mini-expand-feature bg-body-tertiary">
     <?php if ($mensaje_registro_clientes_correcto): ?>
         <script>
             Swal.fire({

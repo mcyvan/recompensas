@@ -64,9 +64,13 @@ function obtenerClientes()
                                             tb_clientes.fecha_registro,
                                             tb_clientes.estatus,
                                             tb_usuarios.usuario,
-                                            tb_usuarios.id_usuario                                           
+                                            tb_usuarios.id_usuario,
+                                            tb_puntos_recompensas.puntos                                           
                                             FROM tb_usuarios 
-                                            INNER JOIN tb_clientes ON tb_clientes.id_usuario=tb_usuarios.id_usuario;");
+                                            INNER JOIN tb_clientes ON tb_clientes.id_usuario=tb_usuarios.id_usuario
+                                            left JOIN tb_puntos_recompensas ON tb_puntos_recompensas.id_cliente=tb_clientes.id_cliente
+                                            WHERE tb_clientes.estatus = '1'
+                                            ;");
 
     $consulta_login->execute();
 
@@ -92,9 +96,9 @@ function obtenerClientesID($id_cliente)
                                             tb_usuarios.usuario,
                                             tb_usuarios.id_usuario                                           
                                             FROM tb_usuarios 
-                                            INNER JOIN tb_clientes ON tb_clientes.id_usuario=tb_usuarios.id_usuario;");
-
-    $consulta_login->execute();
+                                            INNER JOIN tb_clientes ON tb_clientes.id_usuario=tb_usuarios.id_usuario
+                                            WHERE tb_clientes.id_cliente = ?");
+    $consulta_login->execute([$id_cliente]);
 
     // Obtener el resultado
     $resultado = $consulta_login->fetchAll(PDO::FETCH_ASSOC);
@@ -147,4 +151,28 @@ function obtenerUsuario($id_usuario)
     $usuario = $query->fetchAll(PDO::FETCH_ASSOC);
 
     return $usuario;
+}
+
+function obtenerDatosClientePorTelefono($telefono)
+{
+    global $pdo;
+
+    $sql = "SELECT 
+    tb_puntos_recompensas.puntos,
+    tb_puntos_recompensas.remision,
+    tb_clientes.nombres,
+    tb_clientes.apellido_p,
+    tb_clientes.apellido_m,
+    tb_usuarios.usuario
+FROM tb_usuarios 
+INNER JOIN tb_clientes ON tb_clientes.id_usuario = tb_usuarios.id_usuario
+LEFT JOIN tb_puntos_recompensas ON tb_puntos_recompensas.id_cliente = tb_clientes.id_cliente
+WHERE tb_clientes.telefono = ? AND tb_clientes.estatus = '1'";
+
+    $query = $pdo->prepare($sql);
+    $query->execute([$telefono]);
+
+    $cliente = $query->fetch(PDO::FETCH_ASSOC);
+
+    return $cliente;
 }
