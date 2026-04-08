@@ -135,8 +135,8 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
                                     <div class="row g-3">
                                         <!--begin::Col-->
                                         <div class="col-md-5">
-                                            <label for="" class="form-label"><b>Numero Registrado</b></label>
-                                            <input type="phone" class="form-control" id="" value="" name="numero" required>
+                                            <label for="inputTelefono" class="form-label"><b>Numero Registrado</b></label>
+                                            <input type="phone" class="form-control" id="inputTelefono" value="" name="numero" required>
                                         </div>
                                         <!--end::Col-->
                                     </div>
@@ -302,8 +302,10 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
                     <h2 class="display-4 text-success fw-bold">${data.puntos}</h2>
                     <p class="text-muted">Puntos Acumulados</p>
                 `;
+                            document.getElementById('inputTelefono').value = ''; // Limpiar el campo después de mostrar el resultado  
                         } else {
                             document.getElementById('contenidoModal').innerHTML = `<p class="text-danger">${data.mensaje}</p>`;
+                            document.getElementById('inputTelefono').value = ''; // Limpiar el campo después de mostrar el resultado  
                         }
                     });
             });

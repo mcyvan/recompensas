@@ -16,7 +16,7 @@ $password = trim($_POST['password']);  // Contraseña nueva
 $fecha_actualizacion = date('Y-m-d H:i:s');
 $estatus = $_POST['estatus'];
 
-if (empty($nombres) || empty($apellido_p) || empty($apellido_m) || empty($usuario) || empty($password)) {
+if (empty($nombres) || empty($apellido_p) || empty($apellido_m) || empty($usuario)) {
     $_SESSION['mensaje_registro_usuario_existe'] = "Todos los campos son obligatorios y no pueden estar vacíos";
     header('Location: ' . $URL . '/usuarios/registrar_usuarios.php');
     exit(); // ¡Importante! Detiene la ejecución

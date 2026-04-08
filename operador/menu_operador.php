@@ -35,7 +35,7 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
 
 <head>
     <?php include('../app/layout/head.php'); ?>
-    <title>Recompensas - Vendedor</title>
+    <title>Recompensas - Operador</title>
     <style>
         /* Clase para botones cuadrados medianos */
         .btn-square-md {
@@ -136,11 +136,11 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
                             <div class="card bg-light m-3 ">
                                 <div class="card-body text-center">
                                     <div class="row">
-                                        <h5 class="card-title">MENU VENDEDOR</h5>
+                                        <h5 class="card-title">MENU OPERADOR</h5>
                                     </div>
                                     <div class="d-grid gap-2 col-6 mx-auto justify-content-center">
                                         <div class="row justify-content-center text-center">
-                                            <a href="../clientes/registrar_cliente.php" class="btn btn-primary btn-square-lg mt-2">
+                                            <a href="#" class="btn btn-primary btn-square-lg mt-2">
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="currentColor" class="bi bi-person-plus-fill" viewBox="0 0 16 16">
                                                     <path d="M1 14s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6" />
                                                     <path fill-rule="evenodd" d="M13.5 5a.5.5 0 0 1 .5.5V7h1.5a.5.5 0 0 1 0 1H14v1.5a.5.5 0 0 1-1 0V8h-1.5a.5.5 0 0 1 0-1H13V5.5a.5.5 0 0 1 .5-.5" />
@@ -148,7 +148,7 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
                                             </a>
                                         </div>
                                         <div class="row justify-content-center text-center">
-                                            <a href="../clientes/consultar_puntos.php" class="btn btn-warning btn-square-lg mt-2">
+                                            <a href="#" class="btn btn-warning btn-square-lg mt-2">
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="currentColor" class="bi bi-search" viewBox="0 0 16 16">
                                                     <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0" />
                                                 </svg>
