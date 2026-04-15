@@ -11,6 +11,7 @@ $telefono = trim($_POST['telefono']);
 $fecha_nacimiento = $_POST['fecha_nacimiento'];
 $fecha_registro = date('Y-m-d');
 $usuario = strtoupper(trim($_SESSION['id_usuario_login']));
+$id_vendedor = $_POST['id_vendedor'];
 
 
 if (empty($nombre) || empty($apellido_p) || empty($apellido_m) || empty($correo) || empty($telefono) || empty($fecha_nacimiento)) {

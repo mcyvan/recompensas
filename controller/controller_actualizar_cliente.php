@@ -13,6 +13,9 @@ $fecha_registro = date('Y-m-d');
 $usuario = strtoupper(trim($_SESSION['id_usuario_login']));
 $id_cliente = $_POST['id_cliente'];
 $estatus = $_POST['id_estatus'];
+$id_vendedor = $_POST['id_vendedor'];
+
+
 
 if (empty($nombre) || empty($apellido_p) || empty($apellido_m) || empty($correo) || empty($telefono) || empty($fecha_nacimiento)) {
     $_SESSION['mensaje_registro_cliente_existe'] = "Todos los campos son obligatorios y no pueden estar vacíos";
@@ -28,7 +31,7 @@ try {
     // 1. Actualizacion
     $sql = "UPDATE tb_clientes SET nombres = :nombres, apellido_p = :apellido_p, apellido_m = :apellido_m, 
                                    correo = :correo, telefono = :telefono, fecha_nacimiento = :fecha_nacimiento, 
-                                   fecha_registro = :fecha_registro, id_usuario = :id_usuario, estatus = :estatus 
+                                   fecha_registro = :fecha_registro, id_usuario = :id_usuario, estatus = :estatus                                   
                                    WHERE id_cliente = :id_cliente";
 
     $sentencia = $pdo->prepare($sql);
@@ -40,7 +43,7 @@ try {
         ':telefono' => $telefono,
         ':fecha_nacimiento' => $fecha_nacimiento,
         ':fecha_registro' => $fecha_registro,
-        ':id_usuario' => $usuario,
+        ':id_usuario' => $id_vendedor,
         ':id_cliente' => $id_cliente,
         ':estatus' => $estatus
     ]);

@@ -67,7 +67,7 @@ function obtenerClientes()
                                             tb_usuarios.id_usuario,
                                             tb_puntos_recompensas.puntos                                           
                                             FROM tb_usuarios 
-                                            INNER JOIN tb_clientes ON tb_clientes.id_usuario=tb_usuarios.id_usuario
+                                            left JOIN tb_clientes ON tb_clientes.id_usuario=tb_usuarios.id_usuario
                                             left JOIN tb_puntos_recompensas ON tb_puntos_recompensas.id_cliente=tb_clientes.id_cliente
                                             WHERE tb_clientes.estatus = '1'
                                             ;");
@@ -105,7 +105,32 @@ function obtenerClientesID($id_cliente)
     return $resultado;
 }
 
+function obtenerVendedores()
+{
+    global $pdo;
 
+    $consulta_login = $pdo->prepare("SELECT 
+                                            tb_usuarios_detalle.nombres,
+                                            tb_usuarios_detalle.apellido_p,
+                                            tb_usuarios_detalle.apellido_m,                                            
+                                            tb_usuarios_detalle.telefono,                                            
+                                            tb_usuarios_detalle.fecha_registro,
+                                            tb_usuarios.estatus,
+                                            tb_usuarios.usuario,
+                                            tb_usuarios.id_usuario,                                            
+                                            tb_roles.rol,
+                                            tb_roles.id_rol
+                                            FROM tb_usuarios 
+                                            INNER JOIN tb_usuarios_detalle ON tb_usuarios_detalle.id_usuario=tb_usuarios.id_usuario
+                                            INNER JOIN tb_roles ON tb_roles.id_rol=tb_usuarios_detalle.id_rol
+                                            WHERE tb_roles.id_rol = 2;");
+
+    $consulta_login->execute();
+
+    // Obtener el resultado
+    $resultado = $consulta_login->fetchAll(PDO::FETCH_ASSOC);
+    return $resultado;
+}
 
 function obtenerTotalClientes($vendedor)
 {

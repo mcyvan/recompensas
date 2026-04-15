@@ -4,7 +4,7 @@ require_once("../app/functions/auth.php");
 require_once('../app/functions/consultas.php');
 verificarSesion();
 $clientes = obtenerClientes();
-
+$vendedores = obtenerVendedores();
 
 if (isset($_SESSION['mensaje_registro_clientes_correcto'])) {
     $mensaje_registro_clientes_correcto = $_SESSION['mensaje_registro_clientes_correcto'];
@@ -170,6 +170,21 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
                                             <label for="" class="form-label"><b>Fecha Nacimiento</b></label>
                                             <input type="date" class="form-control" id="" value="" name="fecha_nacimiento" required>
                                         </div>
+                                        <!--end::Col-->
+                                        <?php if ($_SESSION['rol'] == "ADMINISTRADOR" || $_SESSION['rol'] == "ADMINISTRACION") { ?>
+                                            <!--begin::Col-->
+                                            <div class="col-md-3">
+                                                <label for="" class="form-label"><b>Vendedor</b></label>
+                                                <select name="id_vendedor" id="vendedor" class="form-control">
+                                                    <option value="">Seleccione un vendedor</option>
+                                                    <?php foreach ($vendedores as $vendedor): ?>
+                                                        <option value="<?php echo $vendedor['id_usuario']; ?>">
+                                                            <?php echo $vendedor['usuario']; ?>
+                                                        </option>
+                                                    <?php endforeach; ?>
+                                                </select>
+                                            </div>
+                                        <?php } ?>
                                         <!--end::Col-->
                                     </div>
                                     <!--begin::Footer-->
