@@ -13,6 +13,10 @@ $fecha_registro = date('Y-m-d');
 $usuario = strtoupper(trim($_SESSION['id_usuario_login']));
 $id_vendedor = $_POST['id_vendedor'];
 
+if ($_SESSION['rol'] == "ADMINISTRADOR" || $_SESSION['rol'] == "ADMINISTRACION") {
+    $usuario = strtoupper(trim($id_vendedor));
+}
+
 
 if (empty($nombre) || empty($apellido_p) || empty($apellido_m) || empty($correo) || empty($telefono) || empty($fecha_nacimiento)) {
     $_SESSION['mensaje_registro_cliente_existe'] = "Todos los campos son obligatorios y no pueden estar vacíos";

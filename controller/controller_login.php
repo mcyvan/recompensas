@@ -15,6 +15,8 @@ $consulta_login->execute();
 $resultado = $consulta_login->fetch(PDO::FETCH_ASSOC);
 //echo password_hash($resultado['password'], PASSWORD_DEFAULT);
 // exit();
+
+
 if (!$resultado) {
     // Si no se encuentra el usuario
     header('Location: ' . $URL . '/login');
@@ -59,7 +61,6 @@ if (!$resultado) {
         $_SESSION['id_usuario_login'] = $id_usuario;
         $_SESSION['usuario'] = $usuario;
 
-
         // Redirigir dependiendo del usuario
         if ($_SESSION['rol'] == "ADMINISTRADOR") {
             header('Location: ../administracion/inicio.php');
@@ -67,6 +68,8 @@ if (!$resultado) {
             header('Location: ../vendedor/menu_vendedor.php');
         } else if ($_SESSION['rol'] == "ADMINISTRACION") {
             header('Location: ../administracion/inicio.php');
+        } else if ($_SESSION['rol'] == "OPERADOR") {
+            header('Location: ../operador/menu_operador.php');
         }
         exit(); // Asegurarse de que no siga ejecutando código después de la redirección
     } else {

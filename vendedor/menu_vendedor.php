@@ -3,7 +3,7 @@ require_once("../app/config/config.php");
 require_once("../app/functions/auth.php");
 require_once('../app/functions/consultas.php');
 verificarSesion();
-$_SESSION['clientes'] = obtenerTotalClientes($_SESSION['usuario']);
+
 if (isset($_SESSION['mensaje_registro_clientes_correcto'])) {
     $mensaje_registro_clientes_correcto = $_SESSION['mensaje_registro_clientes_correcto'];
     unset($_SESSION['mensaje_registro_clientes_correcto']);

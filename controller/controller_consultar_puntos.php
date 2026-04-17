@@ -15,6 +15,7 @@ if (empty($numero)) {
     exit;
 }
 
+
 // Supongamos que esta función busca en tu base de datos
 $cliente = obtenerDatosClientePorTelefono($numero);
 

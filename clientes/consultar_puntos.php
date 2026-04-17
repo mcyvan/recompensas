@@ -3,7 +3,7 @@ require_once("../app/config/config.php");
 require_once("../app/functions/auth.php");
 require_once('../app/functions/consultas.php');
 verificarSesion();
-$clientes = obtenerClientes();
+$clientes = obtenerPuntoClientes();
 
 
 if (isset($_SESSION['mensaje_registro_clientes_correcto'])) {
@@ -136,7 +136,7 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
                                         <!--begin::Col-->
                                         <div class="col-md-5">
                                             <label for="inputTelefono" class="form-label"><b>Numero Registrado</b></label>
-                                            <input type="phone" class="form-control" id="inputTelefono" value="" name="numero" required>
+                                            <input type="number" class="form-control" id="inputTelefono" value="" name="numero" required>
                                         </div>
                                         <!--end::Col-->
                                     </div>
