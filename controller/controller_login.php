@@ -6,8 +6,8 @@ session_start();
 $usuario = $_POST['usuario'];
 $password = $_POST['password'];
 
-// Preparar la consulta de login
-$consulta_login = $pdo->prepare("SELECT * FROM tb_usuarios WHERE usuario = :usuario AND estatus = 1");
+// Solo id y hash para validar credenciales
+$consulta_login = $pdo->prepare("SELECT id_usuario, password FROM tb_usuarios WHERE usuario = :usuario AND estatus = 1");
 $consulta_login->bindParam(':usuario', $usuario, PDO::PARAM_STR);
 $consulta_login->execute();
 
@@ -36,7 +36,6 @@ if (!$resultado) {
                                             tb_usuarios.estatus,
                                             tb_usuarios.usuario,
                                             tb_usuarios.id_usuario,
-                                            tb_usuarios.password,
                                             tb_roles.rol
                                             FROM tb_usuarios 
                                             INNER JOIN tb_usuarios_detalle ON tb_usuarios_detalle.id_usuario=tb_usuarios.id_usuario

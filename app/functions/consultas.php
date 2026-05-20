@@ -11,7 +11,7 @@ function obtenerRoles()
 }
 
 
-function obtenerRolesID($id_rol)
+function obtenerRolesID(int $id_rol)
 {
     global $pdo;
 
@@ -33,8 +33,7 @@ function obtenerUsuarios()
                                             tb_usuarios_detalle.fecha_registro,
                                             tb_usuarios.estatus,
                                             tb_usuarios.usuario,
-                                            tb_usuarios.id_usuario,
-                                            tb_usuarios.password,
+                                            tb_usuarios.id_usuario,                                           
                                             tb_roles.rol,
                                             tb_roles.id_rol
                                             FROM tb_usuarios 
@@ -64,12 +63,10 @@ function obtenerClientes()
                                             tb_clientes.fecha_registro,
                                             tb_clientes.estatus,
                                             tb_usuarios.usuario,
-                                            tb_usuarios.id_usuario,
-                                            tb_remisiones.puntos                                           
+                                            tb_usuarios.id_usuario                                                                                      
                                             FROM tb_usuarios 
-                                            left JOIN tb_clientes ON tb_clientes.id_usuario=tb_usuarios.id_usuario
-                                            left JOIN tb_remisiones ON tb_remisiones.telefono=tb_clientes.telefono
-                                            WHERE tb_clientes.estatus = '1'
+                                            left JOIN tb_clientes ON tb_clientes.id_usuario=tb_usuarios.id_usuario                                    
+                                            WHERE tb_clientes.estatus in ('1','0')
                                             ;");
 
     $consulta_login->execute();
@@ -108,7 +105,7 @@ function obtenerPuntoClientes()
     return $resultado;
 }
 
-function obtenerClientesID($id_cliente)
+function obtenerClientesID(int $id_cliente)
 {
     global $pdo;
 
@@ -161,7 +158,7 @@ function obtenerVendedores()
     return $resultado;
 }
 
-function obtenerTotalClientes($vendedor)
+function obtenerTotalClientes(string $vendedor)
 {
     global $pdo;
 
@@ -187,7 +184,8 @@ function obtenerTotalClientesxVendedor()
                                         FROM tb_usuarios 
                                         INNER JOIN tb_clientes ON tb_clientes.id_usuario=tb_usuarios.id_usuario
                                         LEFT join tb_usuarios_detalle ON tb_usuarios.id_usuario=tb_usuarios_detalle.id_usuario
-                                        GROUP BY tb_clientes.id_cliente");
+                                        WHERE tb_clientes.estatus = '1'
+                                        GROUP BY tb_clientes.id_usuario");
 
     $consulta_login->execute();
 
@@ -196,7 +194,7 @@ function obtenerTotalClientesxVendedor()
     return $resultado;
 }
 
-function obtenerUsuario($id_usuario)
+function obtenerUsuario(int $id_usuario)
 {
     global $pdo;
 
@@ -209,8 +207,7 @@ function obtenerUsuario($id_usuario)
                 tb_usuarios_detalle.fecha_registro,
                 tb_usuarios.estatus,
                 tb_usuarios.usuario,
-                tb_usuarios.id_usuario,
-                tb_usuarios.password,
+                tb_usuarios.id_usuario,                
                 tb_roles.rol,
                 tb_roles.id_rol
             FROM tb_usuarios 
@@ -227,7 +224,7 @@ function obtenerUsuario($id_usuario)
     return $usuario;
 }
 
-function obtenerDatosClientePorTelefono($telefono)
+function obtenerDatosClientePorTelefono(int $telefono)
 {
     global $pdo;
 
@@ -249,4 +246,67 @@ WHERE tb_clientes.telefono = ? AND tb_clientes.estatus = '1'";
     $cliente = $query->fetch(PDO::FETCH_ASSOC);
 
     return $cliente;
+}
+
+function obtenerPremios()
+{
+    global $pdo;
+
+    $sql = "select 
+            tb_premios.id_premio,
+            tb_premios.premio,
+            tb_premios.descripcion,
+            tb_premios.puntos_requeridos,
+            tb_premios.stock,
+            tb_premios.activo,
+            tb_premios.fecha_registro,
+            tb_premios.imagen,
+            tb_premios.id_categoria,
+            tb_categorias.categoria
+            from tb_premios
+            inner join tb_categorias on tb_premios.id_categoria = tb_categorias.id_categoria";
+    $query = $pdo->prepare($sql);
+    $query->execute();
+
+    $premios = $query->fetchAll(PDO::FETCH_ASSOC);
+
+    return $premios;
+}
+
+function obtenerPremiosxId(int $id_premio)
+{
+    global $pdo;
+
+    $sql = "select 
+            tb_premios.id_premio,
+            tb_premios.premio,
+            tb_premios.descripcion,
+            tb_premios.puntos_requeridos,
+            tb_premios.stock,
+            tb_premios.activo,
+            tb_premios.fecha_registro,
+            tb_premios.imagen,
+            tb_premios.id_categoria,
+            tb_categorias.categoria
+            from tb_premios
+            inner join tb_categorias on tb_premios.id_categoria = tb_categorias.id_categoria
+            where tb_premios.id_premio = ?";
+    $query = $pdo->prepare($sql);
+    $query->execute([$id_premio]);
+
+    $premio = $query->fetch(PDO::FETCH_ASSOC);
+
+    return $premio;
+}
+function obtenerCategorias()
+{
+    global $pdo;
+
+    $sql = "select * from tb_categorias";
+    $query = $pdo->prepare($sql);
+    $query->execute();
+
+    $categorias = $query->fetchAll(PDO::FETCH_ASSOC);
+
+    return $categorias;
 }

@@ -9,7 +9,7 @@ $apellido_m = strtoupper(trim($_POST['apellido_m']));
 $correo = strtolower(trim($_POST['correo']));
 $telefono = trim($_POST['telefono']);
 $fecha_nacimiento = $_POST['fecha_nacimiento'];
-$fecha_registro = date('Y-m-d');
+// $fecha_registro = date('Y-m-d');
 $usuario = strtoupper(trim($_SESSION['id_usuario_login']));
 $id_cliente = $_POST['id_cliente'];
 $estatus = $_POST['id_estatus'];
@@ -31,7 +31,7 @@ try {
     // 1. Actualizacion
     $sql = "UPDATE tb_clientes SET nombres = :nombres, apellido_p = :apellido_p, apellido_m = :apellido_m, 
                                    correo = :correo, telefono = :telefono, fecha_nacimiento = :fecha_nacimiento, 
-                                   fecha_registro = :fecha_registro, id_usuario = :id_usuario, estatus = :estatus                                   
+                                   id_usuario = :id_usuario, estatus = :estatus                                   
                                    WHERE id_cliente = :id_cliente";
 
     $sentencia = $pdo->prepare($sql);
@@ -42,7 +42,6 @@ try {
         ':correo' => $correo,
         ':telefono' => $telefono,
         ':fecha_nacimiento' => $fecha_nacimiento,
-        ':fecha_registro' => $fecha_registro,
         ':id_usuario' => $id_vendedor,
         ':id_cliente' => $id_cliente,
         ':estatus' => $estatus

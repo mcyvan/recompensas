@@ -12,6 +12,7 @@ $fecha_nacimiento = $_POST['fecha_nacimiento'];
 $fecha_registro = date('Y-m-d');
 $usuario = strtoupper(trim($_SESSION['id_usuario_login']));
 $id_vendedor = $_POST['id_vendedor'];
+$token_publico = bin2hex(random_bytes(32));
 
 if ($_SESSION['rol'] == "ADMINISTRADOR" || $_SESSION['rol'] == "ADMINISTRACION") {
     $usuario = strtoupper(trim($id_vendedor));
@@ -44,8 +45,8 @@ try {
     }
 
     // 2. Inserción
-    $sql = "INSERT INTO tb_clientes (nombres, apellido_p, apellido_m, correo, telefono, fecha_nacimiento, fecha_registro, id_usuario,estatus) 
-            VALUES (:nombres, :apellido_p, :apellido_m, :correo, :telefono, :fecha_nacimiento, :fecha_registro, :id_usuario,:estatus)";
+    $sql = "INSERT INTO tb_clientes (nombres, apellido_p, apellido_m, correo, telefono, fecha_nacimiento, fecha_registro, id_usuario,estatus, token_publico) 
+            VALUES (:nombres, :apellido_p, :apellido_m, :correo, :telefono, :fecha_nacimiento, :fecha_registro, :id_usuario,:estatus, :token_publico)";
 
     $sentencia = $pdo->prepare($sql);
     $sentencia->execute([
@@ -57,6 +58,7 @@ try {
         ':fecha_nacimiento' => $fecha_nacimiento,
         ':fecha_registro' => $fecha_registro,
         ':id_usuario' => $usuario,
+        ':token_publico' => $token_publico,
         ':estatus' => 1
     ]);
 

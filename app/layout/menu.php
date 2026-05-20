@@ -48,6 +48,21 @@
               </li>
             </ul>
           </li>
+          <li class="nav-header">PREMIOS</li>
+          <li class="nav-item">
+            <a href="#" class="nav-link">
+              <i class="bi bi-gift"></i>
+              <p>PREMIOS<i class="nav-arrow bi bi-chevron-right"></i></p>
+            </a>
+            <ul class="nav nav-treeview">
+              <li class="nav-item">
+                <a href="../premios/registrar_premio.php" class="nav-link">
+                  <i class="bi bi-gift"></i>
+                  <p>ALTA PREMIOS</p>
+                </a>
+              </li>
+            </ul>
+          </li>
           <li class="nav-header">CONFIGURACION</li>
           <li class="nav-item">
             <a href="#" class="nav-link">
@@ -67,6 +82,20 @@
                 <a href="../usuarios/registrar_rol.php" class="nav-link">
                   <i class="bi bi-person-lines-fill"></i>
                   <p>REGISTRAR ROL</p>
+                </a>
+              </li>
+            </ul>
+          </li>
+          <li class="nav-item">
+            <a href="#" class="nav-link">
+              <i class="bi bi-circle-square"></i>
+              <p>CATEGORIAS PREMIOS<i class="nav-arrow bi bi-chevron-right"></i></p>
+            </a>
+            <ul class="nav nav-treeview">
+              <li class="nav-item">
+                <a href="../categorias/registrar_categoria.php" class="nav-link">
+                  <i class="bi bi-circle-square"></i>
+                  <p>REGISTRAR CATEGORIA</p>
                 </a>
               </li>
             </ul>
