@@ -1,6 +1,9 @@
 <?php
 include('../app/config/config.php');
 include("../app/functions/auth.php");
+include("../app/functions/consultas_puntos.php");
+/** @var PDO $pdo */
+/** @var string $URL */
 verificarSesion();
 
 try {
@@ -12,10 +15,12 @@ try {
 
     // 🔍 obtener datos
     $stmt = $pdo->prepare("
-        SELECT hora_inicio, estatus 
-        FROM tb_remisiones 
-        WHERE id_remision = ? AND id_operador = ?
-        LIMIT 1
+        SELECT hora_inicio, volumen, estatus
+FROM tb_remisiones
+WHERE id_remision = ?
+  AND id_operador = ?
+  AND estatus = 'EN PROCESO'
+FOR UPDATE
     ");
     $stmt->execute([$id_remision, $id_usuario]);
 
@@ -43,24 +48,27 @@ try {
     // 🏆 lógica de puntos
     $puntos = 0;
     $estatus_final = 'FINALIZADO';
+    $volumen = (float) $remision['volumen'];
 
     if ($minutos <= 45) {
-        $puntos = $minutos * 2; // 👈 puedes cambiar la lógica
+        $puntos = obtenerPuntos($volumen);
     }
 
     // ✅ actualizar remisión
     $stmt = $pdo->prepare("
-        UPDATE tb_remisiones 
-        SET hora_fin = ?, minutos_colado = ?, puntos = ?, estatus = ?
-        WHERE id_remision = ?
+        UPDATE tb_remisiones
+SET hora_fin = ?, minutos_colado = ?, puntos = ?, estatus = 'FINALIZADO'
+WHERE id_remision = ?
+  AND id_operador = ?
+  AND estatus = 'EN PROCESO'
     ");
 
     $stmt->execute([
         $hora_fin,
         $minutos,
         $puntos,
-        $estatus_final,
-        $id_remision
+        $id_remision,
+        $id_usuario
     ]);
 
     $pdo->commit();

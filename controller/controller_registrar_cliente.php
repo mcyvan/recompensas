@@ -11,7 +11,7 @@ $telefono = trim($_POST['telefono']);
 $fecha_nacimiento = $_POST['fecha_nacimiento'];
 $fecha_registro = date('Y-m-d');
 $usuario = strtoupper(trim($_SESSION['id_usuario_login']));
-$id_vendedor = $_POST['id_vendedor'];
+$id_vendedor = $_SESSION['id_usuario_login'] ?? null; // Si no viene del formulario, lo tomamos de la sesión
 $token_publico = bin2hex(random_bytes(32));
 
 if ($_SESSION['rol'] == "ADMINISTRADOR" || $_SESSION['rol'] == "ADMINISTRACION") {
