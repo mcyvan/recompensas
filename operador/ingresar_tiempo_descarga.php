@@ -4,28 +4,12 @@ require_once("../app/functions/auth.php");
 require_once('../app/functions/consultas.php');
 verificarSesion();
 
-if (isset($_SESSION['mensaje_registro_remision_correcto'])) {
-    $mensaje_registro_remision_correcto = $_SESSION['mensaje_registro_remision_correcto'];
-    unset($_SESSION['mensaje_registro_remision_correcto']);
-} else {
-    $mensaje_registro_remision_correcto = null;
-}
 ?>
 <!doctype html>
 <html lang="es">
 <?php include("../app/layout/head.php"); ?>
 
 <body class="layout-fixed sidebar-expand-lg sidebar-mini sidebar-collapse bg-body-tertiary">
-
-    <?php if ($mensaje_registro_remision_correcto): ?>
-        <script>
-            Swal.fire({
-                text: "<?= $mensaje_registro_remision_correcto ?>",
-                icon: "success"
-            });
-        </script>
-    <?php endif; ?>
-
     <div class="app-wrapper">
 
         <nav class="app-header navbar navbar-expand bg-body">

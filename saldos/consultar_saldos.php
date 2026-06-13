@@ -125,6 +125,7 @@ if (isset($_SESSION['mensaje_registro_clientes_correcto'])) {
                                             <div class="text-center">
                                                 <h1 id="puntos_cliente" class="display-3 fw-bold text-success"></h1>
                                                 <p>Puntos acumulados</p>
+                                                <p id="vigencia_puntos" class="text-danger fw-semibold mb-0"></p>
                                             </div>
 
                                             <hr>
@@ -215,19 +216,27 @@ if (isset($_SESSION['mensaje_registro_clientes_correcto'])) {
                                 document.getElementById('nombre_cliente').innerText = data.nombre + ' ' + data.apellido_p;
                                 document.getElementById('puntos_cliente').innerText = data.puntos;
 
+                                const vigencia = document.getElementById('vigencia_puntos');
+
+                                if (Number(data.puntos) > 0 && data.fecha_vencimiento_texto) {
+                                    vigencia.innerText = 'Puedes canjear tus puntos hasta el ' + data.fecha_vencimiento_texto;
+                                } else {
+                                    vigencia.innerText = '';
+                                }
+
                                 let historialHTML = '';
 
-                                data.historial.forEach(function(item) {
-                                    historialHTML += `
-                    <div class="border rounded p-2 mb-2">
-                        <strong>Remisión:</strong> ${item.folio_remision}<br>
-                        <strong>Puntos:</strong> ${item.puntos}<br>
-                        <strong>Fecha:</strong> ${item.fecha}
-                    </div>
-                `;
-                                });
+                                /*  data.historial.forEach(function(item) {
+                                      historialHTML += `
+                                                          <div class="border rounded p-2 mb-2">
+                                                              <strong>Remisión:</strong> ${item.folio_remision}<br>
+                                                              <strong>Puntos:</strong> ${item.puntos}<br>
+                                                              <strong>Fecha:</strong> ${item.fecha}
+                                                          </div>
+                                                      `;
+                                  });
 
-                                document.getElementById('historial_cliente').innerHTML = historialHTML;
+                                  document.getElementById('historial_cliente').innerHTML = historialHTML;*/
 
                                 const modal = new bootstrap.Modal(document.getElementById('modalPuntos'));
                                 modal.show();

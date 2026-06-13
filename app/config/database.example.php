@@ -6,4 +6,6 @@ return [
     'username' => 'USUARIO',
     'password' => 'CONTRASENA',
     'url' => '/recompensas',
+    'sso_logistica_secret' => 'CLAVE_ALEATORIA_COMPARTIDA',
+    'logistica_login_url' => '/logistica/login',
 ];

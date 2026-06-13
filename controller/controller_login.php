@@ -7,7 +7,7 @@ $usuario = $_POST['usuario'];
 $password = $_POST['password'];
 
 // Solo id y hash para validar credenciales
-$consulta_login = $pdo->prepare("SELECT id_usuario, password FROM tb_usuarios WHERE usuario = :usuario AND estatus = 1");
+$consulta_login = $pdo->prepare("SELECT id_usuario, id_usuario_logistica, password FROM tb_usuarios WHERE usuario = :usuario AND estatus = 1");
 $consulta_login->bindParam(':usuario', $usuario, PDO::PARAM_STR);
 $consulta_login->execute();
 
@@ -22,6 +22,11 @@ if (!$resultado) {
     header('Location: ' . $URL . '/login');
     exit();
 } else {
+    if (!empty($resultado['id_usuario_logistica'])) {
+        header('Location: ' . LOGISTICA_LOGIN_URL);
+        exit();
+    }
+
     // Verificar si la contraseña ingresada coincide con el hash almacenado
     if (password_verify($password, $resultado['password'])) {
         // if ($password == "123*") {

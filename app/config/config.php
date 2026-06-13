@@ -1,5 +1,9 @@
 <?php
 
+if (session_status() === PHP_SESSION_NONE) {
+    session_name('RECOMPENSAS_SESSID');
+}
+
 $configFile = __DIR__ . '/database.local.php';
 
 if (!is_file($configFile)) {
@@ -34,4 +38,6 @@ try {
 }
 
 $URL = $config['url'];
+define('SSO_LOGISTICA_SECRET', $config['sso_logistica_secret'] ?? '');
+define('LOGISTICA_LOGIN_URL', $config['logistica_login_url'] ?? '/logistica/login');
 date_default_timezone_set('America/Mexico_City');

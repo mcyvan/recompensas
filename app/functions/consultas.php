@@ -75,28 +75,83 @@ function obtenerClientes()
     $resultado = $consulta_login->fetchAll(PDO::FETCH_ASSOC);
     return $resultado;
 }
+
+function obtenerClientesPorUsuario(int $id_usuario)
+{
+    global $pdo;
+
+    $consulta = $pdo->prepare("SELECT
+                                    tb_clientes.id_cliente,
+                                    tb_clientes.nombres,
+                                    tb_clientes.apellido_p,
+                                    tb_clientes.apellido_m,
+                                    tb_clientes.telefono,
+                                    tb_clientes.correo,
+                                    tb_clientes.fecha_nacimiento,
+                                    tb_clientes.fecha_registro,
+                                    tb_clientes.estatus,
+                                    tb_usuarios.usuario,
+                                    tb_usuarios.id_usuario
+                                FROM tb_clientes
+                                INNER JOIN tb_usuarios
+                                    ON tb_usuarios.id_usuario = tb_clientes.id_usuario
+                                WHERE tb_clientes.id_usuario = ?
+                                  AND tb_clientes.estatus IN (1, 0)");
+
+    $consulta->execute([$id_usuario]);
+
+    return $consulta->fetchAll(PDO::FETCH_ASSOC);
+}
+
 function obtenerPuntoClientes()
 {
     global $pdo;
 
-    $consulta_login = $pdo->prepare("SELECT 
-                                            tb_clientes.id_cliente,
-                                            tb_clientes.nombres,
-                                            tb_clientes.apellido_p,
-                                            tb_clientes.apellido_m,                                            
-                                            tb_clientes.telefono,                                            
-                                            tb_clientes.correo,
-                                            tb_clientes.fecha_nacimiento,
-                                            tb_clientes.fecha_registro,
-                                            tb_clientes.estatus,
-                                            tb_usuarios.usuario,
-                                            tb_usuarios.id_usuario,
-                                            sum(tb_remisiones.puntos) as puntos                                           
-                                            FROM tb_usuarios 
-                                            left JOIN tb_clientes ON tb_clientes.id_usuario=tb_usuarios.id_usuario
-                                            left JOIN tb_remisiones ON tb_remisiones.telefono=tb_clientes.telefono
-                                            WHERE tb_clientes.estatus = '1' group by tb_clientes.telefono
-                                            ;");
+    $consulta_login = $pdo->prepare("SELECT
+    tb_clientes.id_cliente,
+    tb_clientes.nombres,
+    tb_clientes.apellido_p,
+    tb_clientes.apellido_m,
+    tb_clientes.telefono,
+    tb_clientes.correo,
+    tb_clientes.fecha_nacimiento,
+    tb_clientes.fecha_registro,
+    tb_clientes.estatus,
+    tb_usuarios.usuario,
+    tb_usuarios.id_usuario,
+    COALESCE(SUM(
+        CASE
+            WHEN tb_movimientos_puntos.tipo = 'ACUMULACION'
+                 AND (
+                     tb_movimientos_puntos.fecha_vencimiento IS NULL
+                     OR tb_movimientos_puntos.fecha_vencimiento >= CURRENT_DATE
+                 )
+                THEN tb_movimientos_puntos.puntos
+
+            WHEN tb_movimientos_puntos.tipo IN ('CANJE', 'AJUSTE')
+                THEN tb_movimientos_puntos.puntos
+
+            ELSE 0
+        END
+    ), 0) AS puntos
+FROM tb_usuarios
+INNER JOIN tb_clientes
+    ON tb_clientes.id_usuario = tb_usuarios.id_usuario
+LEFT JOIN tb_movimientos_puntos
+    ON tb_movimientos_puntos.id_cliente = tb_clientes.id_cliente
+WHERE tb_clientes.estatus = 1
+GROUP BY
+    tb_clientes.id_cliente,
+    tb_clientes.nombres,
+    tb_clientes.apellido_p,
+    tb_clientes.apellido_m,
+    tb_clientes.telefono,
+    tb_clientes.correo,
+    tb_clientes.fecha_nacimiento,
+    tb_clientes.fecha_registro,
+    tb_clientes.estatus,
+    tb_usuarios.usuario,
+    tb_usuarios.id_usuario;");
 
     $consulta_login->execute();
 
@@ -237,7 +292,7 @@ function obtenerDatosClientePorTelefono(int $telefono)
     tb_usuarios.usuario
 FROM tb_usuarios 
 INNER JOIN tb_clientes ON tb_clientes.id_usuario = tb_usuarios.id_usuario
-LEFT JOIN tb_remisiones ON tb_remisiones.telefono = tb_clientes.telefono
+LEFT JOIN tb_remisiones ON tb_remisiones.id_cliente = tb_clientes.id_cliente
 WHERE tb_clientes.telefono = ? AND tb_clientes.estatus = '1'";
 
     $query = $pdo->prepare($sql);

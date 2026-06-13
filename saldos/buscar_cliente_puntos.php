@@ -38,9 +38,9 @@ if (strlen($telefono) !== 10) {
 }
 
 $stmtCliente = $pdo->prepare("
-    SELECT nombres, apellido_p, telefono
+    SELECT id_cliente, nombres, apellido_p, telefono 
     FROM tb_clientes
-    WHERE telefono = ?
+    WHERE telefono = ? AND estatus = 1
     LIMIT 1
 ");
 
@@ -57,38 +57,60 @@ if (!$cliente) {
 }
 
 $stmtPuntos = $pdo->prepare("
-    SELECT SUM(puntos) AS total_puntos
-    FROM tb_remisiones
-    WHERE telefono = ?
-    AND estatus = 'FINALIZADO'
+    SELECT
+        COALESCE(SUM(puntos), 0) AS total_puntos,
+        MIN(
+            CASE
+                WHEN tipo = 'ACUMULACION'
+                 AND puntos > 0
+                 AND fecha_vencimiento >= CURRENT_DATE
+                THEN fecha_vencimiento
+                ELSE NULL
+            END
+        ) AS fecha_vencimiento
+    FROM tb_movimientos_puntos
+    WHERE id_cliente = ?
+      AND (
+          fecha_vencimiento IS NULL
+          OR fecha_vencimiento >= CURRENT_DATE
+      )
 ");
 
-$stmtPuntos->execute([$telefono]);
+$stmtPuntos->execute([$cliente['id_cliente']]);
 
 $puntos = $stmtPuntos->fetch(PDO::FETCH_ASSOC);
+$fechaVencimiento = $puntos['fecha_vencimiento'] ?? null;
+$fechaVencimientoTexto = null;
 
-$stmtHistorial = $pdo->prepare("
-    SELECT
-        folio_remision,
-        volumen,
-        minutos_colado,
-        puntos,
-        DATE_FORMAT(hora_fin, '%d/%m/%Y') AS fecha
-    FROM tb_remisiones
-    WHERE telefono = ?
-    AND estatus = 'FINALIZADO'
-    ORDER BY hora_fin DESC
-    LIMIT 10
-");
+if ($fechaVencimiento) {
+    $fechaVencimientoTexto = (new DateTimeImmutable($fechaVencimiento))
+        ->format('d/m/Y');
+}
 
-$stmtHistorial->execute([$telefono]);
+// $stmtHistorial = $pdo->prepare("
+//     SELECT
+//         folio_remision,
+//         volumen,
+//         minutos_colado,
+//         puntos,
+//         DATE_FORMAT(hora_fin, '%d/%m/%Y') AS fecha
+//     FROM tb_remisiones
+//     WHERE telefono = ?
+//     AND estatus = 'FINALIZADO'
+//     ORDER BY hora_fin DESC
+//     LIMIT 10
+// ");
 
-$historial = $stmtHistorial->fetchAll(PDO::FETCH_ASSOC);
+// $stmtHistorial->execute([$telefono]);
+
+// $historial = $stmtHistorial->fetchAll(PDO::FETCH_ASSOC);
 
 echo json_encode([
     'success' => true,
     'nombre' => $cliente['nombres'],
     'apellido_p' => $cliente['apellido_p'],
     'puntos' => $puntos['total_puntos'] ?? 0,
-    'historial' => $historial,
+    'fecha_vencimiento' => $fechaVencimiento,
+    'fecha_vencimiento_texto' => $fechaVencimientoTexto,
+    // 'historial' => $historial,
 ]);

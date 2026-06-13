@@ -3,8 +3,17 @@ require_once("../app/config/config.php");
 require_once("../app/functions/auth.php");
 require_once('../app/functions/consultas.php');
 verificarSesion();
-$clientes = obtenerClientes();
-$vendedores = obtenerVendedores();
+
+$rol = $_SESSION['rol'] ?? '';
+$idUsuario = (int) ($_SESSION['id_usuario_login'] ?? 0);
+$esAdministracion = in_array($rol, ['ADMINISTRADOR', 'ADMINISTRACION'], true);
+$esVendedor = $rol === 'VENDEDOR';
+
+$clientes = $esAdministracion
+    ? obtenerClientes()
+    : ($esVendedor ? obtenerClientesPorUsuario($idUsuario) : []);
+
+$vendedores = $esAdministracion ? obtenerVendedores() : [];
 
 if (isset($_SESSION['mensaje_registro_clientes_correcto'])) {
     $mensaje_registro_clientes_correcto = $_SESSION['mensaje_registro_clientes_correcto'];
@@ -215,13 +224,13 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
                 <!--begin::Container-->
                 <div class="container-fluid">
                     <!--begin::Row-->
-                    <?php if ($_SESSION['rol'] == "ADMINISTRADOR" || $_SESSION['rol'] == "ADMINISTRACION") { ?>
+                    <?php if ($esAdministracion || $esVendedor) { ?>
                         <div class="row justify-content-center align-items-center">
                             <div class="card card-danger card-outline mb-4 col-sm-12">
                                 <!--begin::Header-->
                                 <div class="card-header">
-                                    <div class="card-title col-sm-3">
-                                        <b>Tabla Clientes</b>
+                                    <div class="card-title col-sm-6">
+                                        <b><?= $esVendedor ? 'Mis clientes' : 'Tabla Clientes' ?></b>
                                     </div>
                                     <!-- <div class="card-title col-sm-4">
                                 <button id="exportExcel" class="btn btn-success mr-2">Exportar a Excel</button>

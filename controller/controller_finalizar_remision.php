@@ -14,13 +14,12 @@ try {
     $id_usuario = $_SESSION['id_usuario_login'];
 
     // 🔍 obtener datos
-    $stmt = $pdo->prepare("
-        SELECT hora_inicio, volumen, estatus
-FROM tb_remisiones
-WHERE id_remision = ?
-  AND id_operador = ?
-  AND estatus = 'EN PROCESO'
-FOR UPDATE
+    $stmt = $pdo->prepare("SELECT hora_inicio, volumen, estatus,id_cliente
+                            FROM tb_remisiones
+                            WHERE id_remision = ?
+                            AND id_operador = ?
+                            AND estatus = 'EN PROCESO'
+                            FOR UPDATE
     ");
     $stmt->execute([$id_remision, $id_usuario]);
 
@@ -49,17 +48,23 @@ FOR UPDATE
     $puntos = 0;
     $estatus_final = 'FINALIZADO';
     $volumen = (float) $remision['volumen'];
+    $id_cliente = $remision['id_cliente'];
 
     if ($minutos <= 45) {
         $puntos = obtenerPuntos($volumen);
     }
 
+
+    $observacion = $puntos > 0
+        ? 'Remisión finalizada dentro de 45 minutos'
+        : 'Remisión finalizada después de 45 minutos';
     // ✅ actualizar remisión
     $stmt = $pdo->prepare("
         UPDATE tb_remisiones
 SET hora_fin = ?, minutos_colado = ?, puntos = ?, estatus = 'FINALIZADO'
 WHERE id_remision = ?
   AND id_operador = ?
+  AND id_cliente = ?
   AND estatus = 'EN PROCESO'
     ");
 
@@ -68,22 +73,33 @@ WHERE id_remision = ?
         $minutos,
         $puntos,
         $id_remision,
-        $id_usuario
+        $id_usuario,
+        $id_cliente
     ]);
+    $stmt = $pdo->prepare("
+    INSERT INTO tb_movimientos_puntos
+        (id_cliente, id_remision, tipo, puntos, fecha_vencimiento, observaciones)
+    VALUES (?, ?, 'ACUMULACION', ?, '2026-12-20', ?)
+");
+
+    $stmt->execute([$id_cliente, $id_remision, $puntos, $observacion]);
+
 
     $pdo->commit();
 
     $_SESSION['mensaje_registro_remision_correcto'] =
         "Remisión finalizada en $minutos min. Puntos: $puntos";
 
-    header('Location: ' . $URL . '/operador/ingresar_tiempo_descarga.php');
+    header('Location: ' . $URL . '/operador/menu_operador.php');
     exit();
-} catch (Exception $e) {
+} catch (Throwable $e) {
 
-    $pdo->rollBack();
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
 
     $_SESSION['mensaje_registro_remision_error'] = $e->getMessage();
 
-    header('Location: ' . $URL . '/operador/ingresar_tiempo_descarga.php');
+    header('Location: ' . $URL . '/operador/menu_operador.php');
     exit();
 }

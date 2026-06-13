@@ -1,6 +1,9 @@
 <?php
 include('../app/config/config.php');
-session_start();
+include("../app/functions/auth.php");
+/** @var PDO $pdo */
+/** @var string $URL */
+verificarSesion();
 
 // Obtener los datos del formulario
 $nombre = strtoupper(trim($_POST['nombre']));

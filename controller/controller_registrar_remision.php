@@ -1,6 +1,9 @@
 <?php
 include('../app/config/config.php');
 include("../app/functions/auth.php");
+include("../app/functions/consultas_puntos.php");
+/** @var PDO $pdo */
+/** @var string $URL */
 verificarSesion();
 
 try {
@@ -8,6 +11,8 @@ try {
     $pdo->beginTransaction();
 
     $telefono = $_POST['telefono'];
+    $id_cliente = obtenerIdClienteTelefono($telefono);
+
     $folio_remision = strtoupper($_POST['remision']);
     $volumen = floatval($_POST['volumen']);
     $id_usuario = $_SESSION['id_usuario_login'];
@@ -18,12 +23,7 @@ try {
     // echo $telefono . " - " . $folio_remision . " - " . $volumen . " - " . $id_usuario . " - " . $hora_inicio . " - " . $estatus;
     // exit();
 
-
-    // ✅ VALIDAR TELÉFONO
-    $stmt = $pdo->prepare("SELECT id_cliente FROM tb_clientes WHERE telefono = ?");
-    $stmt->execute([$telefono]);
-
-    if (!$stmt->fetch()) {
+    if (!$id_cliente) {
         throw new Exception("Teléfono no válido");
     }
 
@@ -47,12 +47,13 @@ try {
 
     // ✅ INSERT
     $consulta = $pdo->prepare("
-        INSERT INTO tb_remisiones 
-        (telefono, folio_remision, volumen, id_operador, hora_inicio, estatus) 
-        VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO tb_remisiones
+(id_cliente, telefono, folio_remision, volumen, id_operador, hora_inicio, estatus)
+VALUES (?, ?, ?, ?, ?, ?, ?)
     ");
 
     $consulta->execute([
+        $id_cliente,
         $telefono,
         $folio_remision,
         $volumen,
@@ -63,18 +64,22 @@ try {
 
     $id_remision = $pdo->lastInsertId();
 
+
+
     $pdo->commit();
 
     $_SESSION['mensaje_registro_remision_correcto'] = "Remisión registrada correctamente.";
 
     header('Location: ' . $URL . '/operador/remision_en_proceso.php?id=' . $id_remision);
     exit();
-} catch (Exception $e) {
+} catch (Throwable $e) {
 
-    $pdo->rollBack();
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
 
     $_SESSION['mensaje_registro_remision_error'] = $e->getMessage();
 
-    header('Location: ' . $URL . '/operador/ingresar_tiempo_descarga.php');
+    header('Location: ' . $URL . '/operador/menu_operador.php');
     exit();
 }
