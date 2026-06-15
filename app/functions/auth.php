@@ -12,4 +12,22 @@ function verificarSesion()
         header('Location: ' . 'recompensas' . '/login');  // Ajusta la URL según tu ruta
         exit(); // Termina el script para que no continúe ejecutándose
     }
+
+    $rolesSoloCanjes = ['CANJE', 'ADMIN CANJE'];
+    $rol = $_SESSION['rol'] ?? '';
+
+    if (in_array($rol, $rolesSoloCanjes, true)) {
+        $script = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '');
+        $controladoresPermitidos = [
+            'controller_confirmar_canje.php',
+            'controller_cancelar_canje.php',
+        ];
+        $esModuloCanjes = str_contains($script, '/canjes/');
+        $esControladorCanjes = in_array(basename($script), $controladoresPermitidos, true);
+
+        if (!$esModuloCanjes && !$esControladorCanjes) {
+            header('Location: ../canjes/index.php');
+            exit();
+        }
+    }
 }

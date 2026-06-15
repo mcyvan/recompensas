@@ -67,7 +67,7 @@ $hora_inicio = $remision['hora_inicio'];
                                             <p class="text-muted">Tiempo límite: 45 minutos</p>
 
                                             <!-- BOTÓN FINALIZAR -->
-                                            <form action="../controller/controller_finalizar_remision.php" method="POST">
+                                            <form id="form-finalizar-remision" action="../controller/controller_finalizar_remision.php" method="POST">
                                                 <input type="hidden" name="id_remision" value="<?= $id_remision ?>">
 
                                                 <button type="submit" class="btn btn-success btn-square-lg mt-3">
@@ -90,6 +90,25 @@ $hora_inicio = $remision['hora_inicio'];
     <?php include("../app/layout/footer_links.php"); ?>
     <script>
         let tiempoInicio = "<?= $hora_inicio ?>";
+        const formFinalizar = document.getElementById("form-finalizar-remision");
+
+        formFinalizar.addEventListener("submit", function(event) {
+            event.preventDefault();
+
+            Swal.fire({
+                title: "\u00bfEst\u00e1 seguro?",
+                text: "\u00bfDesea finalizar esta remisi\u00f3n?",
+                icon: "question",
+                showCancelButton: true,
+                confirmButtonText: "S\u00ed, finalizar",
+                cancelButtonText: "Cancelar",
+                confirmButtonColor: "#198754"
+            }).then((resultado) => {
+                if (resultado.isConfirmed) {
+                    formFinalizar.submit();
+                }
+            });
+        });
 
         function iniciarCronometro() {
 

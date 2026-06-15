@@ -24,7 +24,7 @@
         data-lte-toggle="treeview"
         role="menu"
         data-accordion="false">
-        <?php if ($_SESSION['rol'] == "ADMINISTRADOR") {; ?>
+        <?php if (in_array($_SESSION['rol'], ['ADMINISTRADOR', 'ADMINISTRACION'], true)) { ?>
           <li class="nav-header">CLIENTES</li>
           <li class="nav-item">
             <a href="#" class="nav-link">
@@ -59,6 +59,14 @@
                 <a href="../premios/registrar_premio.php" class="nav-link">
                   <i class="bi bi-gift"></i>
                   <p>ALTA PREMIOS</p>
+                </a>
+              </li>
+            </ul>
+            <ul class="nav nav-treeview">
+              <li class="nav-item">
+                <a href="../canjes/index.php" class="nav-link">
+                  <i class="bi bi-bag-check"></i>
+                  <p>CANJEAR PREMIOS</p>
                 </a>
               </li>
             </ul>
@@ -99,6 +107,12 @@
                 </a>
               </li>
             </ul>
+          </li>
+          <li class="nav-item">
+            <a href="../configuracion/puntos_por_metro.php" class="nav-link">
+              <i class="bi bi-calculator"></i>
+              <p>PUNTOS POR M&sup3;</p>
+            </a>
           </li>
           <!-- <li class="nav-item">
             <a href="#" class="nav-link">
@@ -154,31 +168,14 @@
             </a>
           </li>
 
-        <?php } elseif ($_SESSION['rol'] == "ADMINISTRACION") {; ?>
-          <li class="nav-header">CLIENTES</li>
+        <?php } elseif (in_array($_SESSION['rol'], ['CANJE', 'ADMIN CANJE'], true)) { ?>
+          <li class="nav-header">CANJES</li>
           <li class="nav-item">
-            <a href="#" class="nav-link">
-              <i class="bi bi-window-plus"></i>
-              <p>CLIENTES<i class="nav-arrow bi bi-chevron-right"></i></p>
+            <a href="../canjes/index.php" class="nav-link">
+              <i class="bi bi-bag-check"></i>
+              <p>CANJEAR PREMIOS</p>
             </a>
-            <ul class="nav nav-treeview">
-              <li class="nav-item">
-                <a href="../clientes/registrar_cliente.php" class="nav-link">
-                  <i class="bi bi-window-plus"></i>
-                  <p>ALTA CLIENTES</p>
-                </a>
-              </li>
-            </ul>
-            <!-- <ul class="nav nav-treeview">
-              <li class="nav-item">
-                <a href="../captura/captura_produccion_sur.php" class="nav-link">
-                  <i class="bi bi-window-plus"></i>
-                  <p>CONSULTA PUNTOS</p>
-                </a>
-              </li>
-            </ul> -->
           </li>
-
         <?php } ?>
       </ul>
       <!--end::Sidebar Menu-->

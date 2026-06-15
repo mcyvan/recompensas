@@ -129,6 +129,10 @@ function obtenerPuntoClientes()
                 THEN tb_movimientos_puntos.puntos
 
             WHEN tb_movimientos_puntos.tipo IN ('CANJE', 'AJUSTE')
+                 AND (
+                     tb_movimientos_puntos.fecha_vencimiento IS NULL
+                     OR tb_movimientos_puntos.fecha_vencimiento >= CURRENT_DATE
+                 )
                 THEN tb_movimientos_puntos.puntos
 
             ELSE 0

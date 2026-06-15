@@ -74,6 +74,10 @@ if (!$resultado) {
             header('Location: ../administracion/inicio.php');
         } else if ($_SESSION['rol'] == "OPERADOR") {
             header('Location: ../operador/menu_operador.php');
+        } else if ($_SESSION['rol'] == "CANJE" || $_SESSION['rol'] == "ADMIN CANJE") {
+            header('Location: ../canjes/index.php');
+        } else {
+            header('Location: ' . $URL . '/login');
         }
         exit(); // Asegurarse de que no siga ejecutando código después de la redirección
     } else {
