@@ -8,6 +8,7 @@ $vendedores = obtenerVendedores();
 $clientes = obtenerClientesID($id_cliente);
 foreach ($clientes as $cliente) {
 }
+$clienteSinCorreo = str_starts_with((string) ($cliente['correo'] ?? ''), 'sin-correo-');
 
 ?>
 <!doctype html>
@@ -99,7 +100,13 @@ foreach ($clientes as $cliente) {
                                         <!--begin::Col-->
                                         <div class="col-md-5">
                                             <label for="" class="form-label"><b>Correo</b></label>
-                                            <input type="email" class="form-control" id="" value="<?php echo $cliente['correo']; ?>" name="correo" required>
+                                            <input type="email" class="form-control" id="correo" value="<?php echo $clienteSinCorreo ? '' : $cliente['correo']; ?>" name="correo" <?php echo $clienteSinCorreo ? 'disabled' : 'required'; ?>>
+                                            <div class="form-check mt-2">
+                                                <input class="form-check-input" type="checkbox" value="1" id="sin_correo" name="sin_correo" <?php echo $clienteSinCorreo ? 'checked' : ''; ?>>
+                                                <label class="form-check-label" for="sin_correo">
+                                                    Sin correo electronico
+                                                </label>
+                                            </div>
                                         </div>
                                         <!--end::Col-->
                                         <!--begin::Col-->
@@ -141,23 +148,11 @@ foreach ($clientes as $cliente) {
                                     <!--end::Col-->
                                     <!--end::Body-->
                                     <!--begin::Footer-->
-                                    <div class="card-footer mt-3 d-flex justify-content-between justify-content-md-center gap-md-3">
-                                        <button class="btn btn-outline-primary" type="submit">Actualizar Cliente</button>
-                                        <?php if ($_SESSION['rol'] == "VENDEDOR") { ?>
-                                            <a href="../vendedor/menu_vendedor.php" class="btn btn-outline-secondary">
-                                                <svg width="30px" height="30px" viewBox="0 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
-                                                    <g id="icomoon-ignore">
-                                                    </g>
-                                                    <path d="M14.389 7.956v4.374l1.056 0.010c7.335 0.071 11.466 3.333 12.543 9.944-4.029-4.661-8.675-4.663-12.532-4.664h-1.067v4.337l-9.884-7.001 9.884-7zM15.456 5.893l-12.795 9.063 12.795 9.063v-5.332c5.121 0.002 9.869 0.26 13.884 7.42 0-4.547-0.751-14.706-13.884-14.833v-5.381z" fill="#000000"></path>
-                                                </svg></a>
-                                        <?php } else { ?>
-                                            <a href="../clientes/registrar_cliente.php" class="btn btn-outline-secondary">
-                                                <svg width="30px" height="30px" viewBox="0 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
-                                                    <g id="icomoon-ignore">
-                                                    </g>
-                                                    <path d="M14.389 7.956v4.374l1.056 0.010c7.335 0.071 11.466 3.333 12.543 9.944-4.029-4.661-8.675-4.663-12.532-4.664h-1.067v4.337l-9.884-7.001 9.884-7zM15.456 5.893l-12.795 9.063 12.795 9.063v-5.332c5.121 0.002 9.869 0.26 13.884 7.42 0-4.547-0.751-14.706-13.884-14.833v-5.381z" fill="#000000"></path>
-                                                </svg></a>
-                                        <?php } ?>
+                                    <div class="card-footer mt-3 d-flex flex-column align-items-stretch">
+                                        <button class="btn btn-primary m-2" type="submit">GUARDAR</button>
+                                        <a href="<?php echo ($_SESSION['rol'] == 'VENDEDOR') ? '../vendedor/menu_vendedor.php' : '../clientes/registrar_cliente.php'; ?>" class="btn btn-secondary m-2">
+                                            CANCELAR
+                                        </a>
                                     </div>
                                 </div>
                                 <!--end::Footer-->
@@ -181,6 +176,24 @@ foreach ($clientes as $cliente) {
             </div>
             <!--end::App Wrapper-->
             <?php include("../app/layout/footer_links.php"); ?>
+            <script>
+                const correoInput = document.getElementById('correo');
+                const sinCorreoInput = document.getElementById('sin_correo');
+
+                sinCorreoInput.addEventListener('change', function() {
+                    if (this.checked) {
+                        correoInput.value = '';
+                        correoInput.disabled = true;
+                        correoInput.required = false;
+                        correoInput.placeholder = 'Sin correo electronico';
+                    } else {
+                        correoInput.disabled = false;
+                        correoInput.required = true;
+                        correoInput.placeholder = '';
+                        correoInput.focus();
+                    }
+                });
+            </script>
 
 </body>
 <!--end::Body-->

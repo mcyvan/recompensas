@@ -13,6 +13,8 @@ if (!is_file($configFile)) {
 }
 
 $config = require $configFile;
+$mailConfigFile = __DIR__ . '/mail.local.php';
+$MAIL_CONFIG = is_file($mailConfigFile) ? require $mailConfigFile : [];
 
 $dsn = sprintf(
     'mysql:host=%s;dbname=%s;charset=utf8mb4',

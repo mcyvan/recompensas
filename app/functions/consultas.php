@@ -253,6 +253,81 @@ function obtenerTotalClientesxVendedor()
     return $resultado;
 }
 
+function obtenerResumenDashboardClientes(): array
+{
+    global $pdo;
+
+    $sqlClientes = "SELECT
+            COUNT(*) AS total_clientes,
+            SUM(CASE WHEN estatus = 1 THEN 1 ELSE 0 END) AS clientes_activos,
+            SUM(CASE WHEN estatus = 0 THEN 1 ELSE 0 END) AS clientes_inactivos,
+            SUM(CASE WHEN fecha_registro >= DATE_FORMAT(CURDATE(), '%Y-%m-01') THEN 1 ELSE 0 END) AS clientes_mes
+        FROM tb_clientes";
+    $clientes = $pdo->query($sqlClientes)->fetch(PDO::FETCH_ASSOC) ?: [];
+
+    $sqlActividad = "SELECT
+            COUNT(DISTINCT CASE WHEN r.estatus <> 'CANCELADO' THEN c.id_cliente END) AS clientes_con_remision,
+            COUNT(DISTINCT CASE WHEN r.estatus <> 'CANCELADO' AND r.puntos > 0 THEN c.id_cliente END) AS clientes_con_puntos,
+            COUNT(CASE WHEN r.estatus <> 'CANCELADO' THEN r.id_remision END) AS remisiones_validas,
+            COALESCE(SUM(CASE WHEN r.estatus <> 'CANCELADO' THEN r.volumen ELSE 0 END), 0) AS total_metros,
+            COALESCE(SUM(CASE WHEN r.estatus <> 'CANCELADO' THEN r.puntos ELSE 0 END), 0) AS total_puntos
+        FROM tb_clientes c
+        LEFT JOIN tb_remisiones r ON r.id_cliente = c.id_cliente";
+    $actividad = $pdo->query($sqlActividad)->fetch(PDO::FETCH_ASSOC) ?: [];
+
+    return array_merge($clientes, $actividad);
+}
+
+function obtenerDashboardClientesPorVendedor(): array
+{
+    global $pdo;
+
+    $sql = "SELECT
+            u.id_usuario,
+            u.usuario AS vendedor,
+            COUNT(DISTINCT c.id_cliente) AS total_clientes,
+            COUNT(DISTINCT CASE WHEN c.estatus = 1 THEN c.id_cliente END) AS clientes_activos,
+            COUNT(DISTINCT CASE WHEN c.fecha_registro >= DATE_FORMAT(CURDATE(), '%Y-%m-01') THEN c.id_cliente END) AS clientes_mes,
+            COUNT(DISTINCT CASE WHEN r.estatus <> 'CANCELADO' THEN c.id_cliente END) AS clientes_con_remision,
+            COUNT(DISTINCT CASE WHEN r.estatus <> 'CANCELADO' AND r.puntos > 0 THEN c.id_cliente END) AS clientes_con_puntos,
+            COUNT(CASE WHEN r.estatus <> 'CANCELADO' THEN r.id_remision END) AS remisiones_validas,
+            COALESCE(SUM(CASE WHEN r.estatus <> 'CANCELADO' THEN r.volumen ELSE 0 END), 0) AS total_metros,
+            COALESCE(SUM(CASE WHEN r.estatus <> 'CANCELADO' THEN r.puntos ELSE 0 END), 0) AS total_puntos,
+            MAX(CASE WHEN r.estatus <> 'CANCELADO' THEN r.hora_inicio ELSE NULL END) AS ultima_remision
+        FROM tb_usuarios u
+        INNER JOIN tb_usuarios_detalle ud ON ud.id_usuario = u.id_usuario
+        INNER JOIN tb_roles rol ON rol.id_rol = ud.id_rol
+        LEFT JOIN tb_clientes c ON c.id_usuario = u.id_usuario
+        LEFT JOIN tb_remisiones r ON r.id_cliente = c.id_cliente
+        WHERE rol.rol = 'VENDEDOR'
+        GROUP BY u.id_usuario, u.usuario
+        ORDER BY total_metros DESC, clientes_con_puntos DESC, total_clientes DESC";
+
+    return $pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+}
+
+function obtenerClientesSinActividadPorVendedor(): array
+{
+    global $pdo;
+
+    $sql = "SELECT
+            u.usuario AS vendedor,
+            COUNT(c.id_cliente) AS clientes_sin_actividad
+        FROM tb_usuarios u
+        INNER JOIN tb_usuarios_detalle ud ON ud.id_usuario = u.id_usuario
+        INNER JOIN tb_roles rol ON rol.id_rol = ud.id_rol
+        LEFT JOIN tb_clientes c ON c.id_usuario = u.id_usuario
+        LEFT JOIN tb_remisiones r ON r.id_cliente = c.id_cliente AND r.estatus <> 'CANCELADO'
+        WHERE rol.rol = 'VENDEDOR'
+          AND c.estatus = 1
+          AND r.id_remision IS NULL
+        GROUP BY u.id_usuario, u.usuario
+        HAVING clientes_sin_actividad > 0
+        ORDER BY clientes_sin_actividad DESC, u.usuario";
+
+    return $pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+}
+
 function obtenerUsuario(int $id_usuario)
 {
     global $pdo;
@@ -285,11 +360,28 @@ function obtenerUsuario(int $id_usuario)
 
 function obtenerDatosClientePorTelefono(int $telefono)
 {
+    return obtenerDatosClientePorCampo('tb_clientes.telefono', $telefono);
+}
+
+function obtenerDatosClientePorId(int $idCliente)
+{
+    return obtenerDatosClientePorCampo('tb_clientes.id_cliente', $idCliente);
+}
+
+function obtenerDatosClientePorCampo(string $campo, $valor)
+{
     global $pdo;
 
+    $camposPermitidos = ['tb_clientes.telefono', 'tb_clientes.id_cliente'];
+    if (!in_array($campo, $camposPermitidos, true)) {
+        return false;
+    }
+
     $sql = "SELECT 
-    sum(tb_remisiones.puntos) as puntos,
-    tb_remisiones.folio_remision,
+    COALESCE(SUM(tb_remisiones.puntos), 0) as puntos,
+    MAX(tb_remisiones.folio_remision) as folio_remision,
+    tb_clientes.id_cliente,
+    tb_clientes.telefono,
     tb_clientes.nombres,
     tb_clientes.apellido_p,
     tb_clientes.apellido_m,
@@ -297,10 +389,11 @@ function obtenerDatosClientePorTelefono(int $telefono)
 FROM tb_usuarios 
 INNER JOIN tb_clientes ON tb_clientes.id_usuario = tb_usuarios.id_usuario
 LEFT JOIN tb_remisiones ON tb_remisiones.id_cliente = tb_clientes.id_cliente
-WHERE tb_clientes.telefono = ? AND tb_clientes.estatus = '1'";
+WHERE $campo = ? AND tb_clientes.estatus = '1'
+GROUP BY tb_clientes.id_cliente, tb_clientes.telefono, tb_clientes.nombres, tb_clientes.apellido_p, tb_clientes.apellido_m, tb_usuarios.usuario";
 
     $query = $pdo->prepare($sql);
-    $query->execute([$telefono]);
+    $query->execute([$valor]);
 
     $cliente = $query->fetch(PDO::FETCH_ASSOC);
 

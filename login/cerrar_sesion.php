@@ -24,9 +24,10 @@ if (ini_get('session.use_cookies')) {
 
 session_destroy();
 
-$destino = $origenSso === 'LOGISTICA'
-    ? LOGISTICA_LOGIN_URL
-    : $URL . '/login';
+$solicitaLoginLocal = ($_GET['destino'] ?? '') === 'login';
+$destino = $solicitaLoginLocal
+    ? $URL . '/login'
+    : ($origenSso === 'LOGISTICA' ? LOGISTICA_LOGIN_URL : $URL . '/login');
 
 header('Location: ' . $destino);
 exit;

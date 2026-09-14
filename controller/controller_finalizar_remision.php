@@ -40,9 +40,13 @@ try {
     $inicio = new DateTime($hora_inicio);
     $fin = new DateTime($hora_fin);
 
-    $diferencia = $inicio->diff($fin);
+    // Calcular con la fecha y hora completas. DateInterval::h solo contiene
+    // la porcion de horas restante y omite los dias completos del intervalo.
+    $minutos = (int) floor(($fin->getTimestamp() - $inicio->getTimestamp()) / 60);
 
-    $minutos = ($diferencia->h * 60) + $diferencia->i;
+    if ($minutos < 0) {
+        throw new Exception("La fecha de finalización no puede ser menor que la fecha de inicio");
+    }
 
     // 🏆 lógica de puntos
     $puntos = 0;

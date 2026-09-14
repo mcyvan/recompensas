@@ -134,9 +134,15 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
                                     <!--begin::Row-->
                                     <div class="row g-3">
                                         <!--begin::Col-->
-                                        <div class="col-md-5">
+                                        <div class="col-md-8">
                                             <label for="inputTelefono" class="form-label"><b>Numero Registrado</b></label>
-                                            <input type="number" class="form-control" id="inputTelefono" value="" name="numero" required>
+                                            <div class="input-group">
+                                                <input type="tel" class="form-control" id="inputTelefono" value="" name="numero" maxlength="10" inputmode="numeric">
+                                                <button class="btn btn-outline-secondary" type="button" id="btnEscanearClienteQr" title="Escanear QR">
+                                                    <i class="bi bi-qr-code-scan"></i>
+                                                </button>
+                                            </div>
+                                            <input type="hidden" id="idClienteQr" name="id_cliente_qr" value="">
                                         </div>
                                         <!--end::Col-->
                                     </div>
@@ -168,7 +174,7 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
                 <!--begin::Container-->
                 <div class="container-fluid">
                     <!--begin::Row-->
-                    <?php if ($_SESSION['rol'] == "ADMINISTRADOR" || $_SESSION['rol'] == "ADMINISTRACION") { ?>
+                    <?php if (in_array($_SESSION['rol'] ?? '', ["ADMINISTRADOR", "ADMINISTRACION", "LOGISTICA"], true)) { ?>
                         <div class="row justify-content-center align-items-center">
                             <div class="card card-danger card-outline mb-4 col-sm-12">
                                 <!--begin::Header-->
@@ -255,6 +261,26 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
             </div>
         </div>
 
+        <div class="modal fade" id="modalQrCliente" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Escanear credencial</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <video id="qrVideoCliente" class="w-100 rounded bg-dark" autoplay muted playsinline></video>
+                        <small id="qrClienteInfo" class="d-block mt-2 text-muted">
+                            Apunta la camara al QR de la credencial.
+                        </small>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!--begin::Footer-->
         <?php include("../app/layout/footer.php"); ?>
         <!--end::Footer-->
@@ -274,13 +300,164 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
         document.addEventListener('DOMContentLoaded', function() {
             const formConsulta = document.querySelector('form'); // Tu formulario
             const myModal = new bootstrap.Modal(document.getElementById('modalPuntos'));
+            const inputTelefono = document.getElementById('inputTelefono');
+            const idClienteQr = document.getElementById('idClienteQr');
+            const btnEscanearClienteQr = document.getElementById('btnEscanearClienteQr');
+            const modalQrClienteElemento = document.getElementById('modalQrCliente');
+            const qrVideoCliente = document.getElementById('qrVideoCliente');
+            const qrClienteInfo = document.getElementById('qrClienteInfo');
+            let qrModalCliente = null;
+            let qrStreamCliente = null;
+            let qrDetectorCliente = null;
+            let qrEscaneandoCliente = false;
+
+            function extraerIdClienteQr(textoQr) {
+                const texto = String(textoQr || '').toUpperCase();
+                const porEtiqueta = texto.match(/(?:CLIENTE_ID|ID_CLIENTE|ID)\s*:?\s*([0-9]+)/);
+                return porEtiqueta ? porEtiqueta[1] : '';
+            }
+
+            function extraerTelefonoQr(textoQr) {
+                const texto = String(textoQr || '').toUpperCase();
+                const porEtiqueta = texto.match(/(?:TEL|TELEFONO|TELÉFONO)\s*:?\s*([0-9]{10})/);
+                if (porEtiqueta) {
+                    return porEtiqueta[1];
+                }
+
+                const porDigitos = texto.match(/[0-9]{10}/);
+                return porDigitos ? porDigitos[0] : '';
+            }
+
+            function detenerEscanerCliente() {
+                qrEscaneandoCliente = false;
+
+                if (qrStreamCliente) {
+                    qrStreamCliente.getTracks().forEach(function(track) {
+                        track.stop();
+                    });
+                    qrStreamCliente = null;
+                }
+
+                if (qrVideoCliente) {
+                    qrVideoCliente.srcObject = null;
+                }
+            }
+
+            async function iniciarEscanerCliente() {
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Camara no disponible',
+                        text: 'Este navegador no permite usar la camara. Puedes escribir el telefono manualmente.'
+                    });
+                    return;
+                }
+
+                if (!window.isSecureContext) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Se requiere HTTPS',
+                        text: 'Para escanear desde celular, abre el sistema con HTTPS.'
+                    });
+                    return;
+                }
+
+                if (!('BarcodeDetector' in window)) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Camara QR no disponible',
+                        text: 'Este navegador no soporta lectura QR directa. Puedes escribir el telefono manualmente.'
+                    });
+                    return;
+                }
+
+                try {
+                    qrModalCliente = qrModalCliente || new bootstrap.Modal(modalQrClienteElemento);
+                    qrModalCliente.show();
+
+                    qrDetectorCliente = qrDetectorCliente || new BarcodeDetector({
+                        formats: ['qr_code']
+                    });
+
+                    qrStreamCliente = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            facingMode: {
+                                ideal: 'environment'
+                            }
+                        },
+                        audio: false
+                    });
+
+                    qrVideoCliente.srcObject = qrStreamCliente;
+                    await qrVideoCliente.play();
+
+                    qrEscaneandoCliente = true;
+                    qrClienteInfo.innerHTML = 'Buscando QR...';
+                    qrClienteInfo.className = 'd-block mt-2 text-muted';
+
+                    const escanear = async function() {
+                        if (!qrEscaneandoCliente) {
+                            return;
+                        }
+
+                        try {
+                            const codigos = await qrDetectorCliente.detect(qrVideoCliente);
+                            if (codigos.length > 0) {
+                                const textoQr = codigos[0].rawValue || '';
+                                const idCliente = extraerIdClienteQr(textoQr);
+                                const telefono = extraerTelefonoQr(textoQr);
+
+                                if (!idCliente && !telefono) {
+                                    qrClienteInfo.innerHTML = 'El QR no trae datos de cliente validos.';
+                                    qrClienteInfo.className = 'd-block mt-2 text-danger';
+                                    requestAnimationFrame(escanear);
+                                    return;
+                                }
+
+                                idClienteQr.value = idCliente;
+                                inputTelefono.value = telefono;
+                                qrClienteInfo.innerHTML = 'Cliente detectado.';
+                                qrClienteInfo.className = 'd-block mt-2 text-success';
+                                detenerEscanerCliente();
+                                qrModalCliente.hide();
+                                formConsulta.requestSubmit();
+                                return;
+                            }
+                        } catch (error) {
+                            qrClienteInfo.innerHTML = 'No fue posible leer el QR. Intenta acercar la camara.';
+                            qrClienteInfo.className = 'd-block mt-2 text-danger';
+                        }
+
+                        requestAnimationFrame(escanear);
+                    };
+
+                    requestAnimationFrame(escanear);
+                } catch (error) {
+                    detenerEscanerCliente();
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'No se pudo abrir la camara',
+                        text: 'Revisa permisos de camara o escribe el telefono manualmente.'
+                    });
+                }
+            }
+
+            btnEscanearClienteQr.addEventListener('click', iniciarEscanerCliente);
+            modalQrClienteElemento.addEventListener('hidden.bs.modal', detenerEscanerCliente);
+            inputTelefono.addEventListener('input', function() {
+                this.value = this.value.replace(/\D/g, '').slice(0, 10);
+                idClienteQr.value = '';
+            });
 
             formConsulta.addEventListener('submit', function(e) {
                 e.preventDefault(); // Evita que la página se refresque
 
-                const numero = document.querySelector('input[name="numero"]').value;
+                const numero = inputTelefono.value.replace(/\D/g, '');
+                const idQr = idClienteQr.value.replace(/\D/g, '');
 
-                if (numero === "") return; // No hacer nada si está vacío
+                if (numero === "" && idQr === "") return; // No hacer nada si está vacío
+                inputTelefono.value = numero;
+                idClienteQr.value = idQr;
 
                 // Abrimos el modal y mostramos que está cargando
                 myModal.show();
@@ -289,6 +466,7 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
                 // Enviamos los datos al controlador por AJAX
                 const formData = new FormData();
                 formData.append('numero', numero);
+                formData.append('id_cliente_qr', idClienteQr.value);
 
                 fetch('../controller/controller_consultar_puntos.php', {
                         method: 'POST',
@@ -303,9 +481,11 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
                     <p class="text-muted">Puntos Acumulados</p>
                 `;
                             document.getElementById('inputTelefono').value = ''; // Limpiar el campo después de mostrar el resultado  
+                            idClienteQr.value = '';  
                         } else {
                             document.getElementById('contenidoModal').innerHTML = `<p class="text-danger">${data.mensaje}</p>`;
                             document.getElementById('inputTelefono').value = ''; // Limpiar el campo después de mostrar el resultado  
+                            idClienteQr.value = '';  
                         }
                     });
             });

@@ -1,1 +1,3 @@
 /app/config/database.local.php
+/app/config/mail.local.php
+/clientes/clientes_whatsapp.csv

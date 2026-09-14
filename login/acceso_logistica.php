@@ -54,8 +54,16 @@ foreach ($camposRequeridos as $campo) {
 }
 
 $ahora = time();
+$rolOrigen = strtoupper(trim((string) $payload['rol']));
+$rolOrigen = preg_replace('/\s+/', ' ', $rolOrigen) ?? $rolOrigen;
+$rolesPermitidos = [
+    'OPERADOR' => 'OPERADOR',
+    'LOGISTICA' => 'LOGISTICA',
+    'DOSIFICADOR' => 'DOSIFICADOR',
+];
+$rolRecompensas = $rolesPermitidos[$rolOrigen] ?? null;
 
-if ($payload['rol'] !== 'OPERADOR'
+if ($rolRecompensas === null
     || !is_numeric($payload['sub'])
     || (int) $payload['sub'] <= 0
     || !is_numeric($payload['iat'])
@@ -73,9 +81,13 @@ $nombre = strtoupper(trim((string) $payload['nombre']));
 $apellidoP = strtoupper(trim((string) $payload['apellido_p']));
 $apellidoM = strtoupper(trim((string) $payload['apellido_m']));
 $telefono = preg_replace('/[^0-9]/', '', (string) $payload['telefono']);
+$idCamionLogistica = isset($payload['id_camion']) && is_numeric($payload['id_camion'])
+    ? (int) $payload['id_camion']
+    : null;
+$camionLogistica = strtoupper(trim((string) ($payload['num_economico'] ?? '')));
 
 if ($usuario === '' || $nombre === '' || $apellidoP === '') {
-    rechazarAccesoSso('El operador no tiene datos suficientes.');
+    rechazarAccesoSso('El usuario no tiene datos suficientes.');
 }
 
 try {
@@ -89,26 +101,35 @@ try {
     );
     $stmt->execute([$payload['nonce'], $idUsuarioLogistica, (int) $payload['exp']]);
 
+    $stmt = $pdo->prepare("SELECT id_rol FROM tb_roles WHERE rol = ? AND estatus = 1 LIMIT 1");
+    $stmt->execute([$rolRecompensas]);
+    $idRol = $stmt->fetchColumn();
+
+    if (!$idRol) {
+        throw new RuntimeException("No existe el rol $rolRecompensas en Recompensas.");
+    }
+
     $stmt = $pdo->prepare(
-        "SELECT u.id_usuario
+        "SELECT u.id_usuario, r.rol
          FROM tb_usuarios u
          INNER JOIN tb_usuarios_detalle d ON d.id_usuario = u.id_usuario
          INNER JOIN tb_roles r ON r.id_rol = d.id_rol
-         WHERE u.id_usuario_logistica = ? AND u.estatus = 1 AND r.rol = 'OPERADOR'
+         WHERE u.id_usuario_logistica = ? AND u.estatus = 1
          LIMIT 1
          FOR UPDATE"
     );
     $stmt->execute([$idUsuarioLogistica]);
-    $idUsuario = $stmt->fetchColumn();
+    $usuarioVinculado = $stmt->fetch();
+    $idUsuario = $usuarioVinculado['id_usuario'] ?? null;
 
-    if (!$idUsuario) {
-        $stmt = $pdo->prepare("SELECT id_rol FROM tb_roles WHERE rol = 'OPERADOR' AND estatus = 1 LIMIT 1");
-        $stmt->execute();
-        $idRol = $stmt->fetchColumn();
-
-        if (!$idRol) {
-            throw new RuntimeException('No existe el rol OPERADOR en Recompensas.');
-        }
+    if ($idUsuario) {
+        $stmt = $pdo->prepare(
+            'UPDATE tb_usuarios_detalle
+             SET id_rol = ?, nombres = ?, apellido_p = ?, apellido_m = ?, telefono = ?
+             WHERE id_usuario = ?'
+        );
+        $stmt->execute([$idRol, $nombre, $apellidoP, $apellidoM, $telefono, $idUsuario]);
+    } else {
 
         $stmt = $pdo->prepare(
             "SELECT u.id_usuario, r.rol
@@ -124,7 +145,7 @@ try {
         $idUsuario = $usuarioExistente['id_usuario'] ?? null;
 
         if ($idUsuario) {
-            if (($usuarioExistente['rol'] ?? '') !== 'OPERADOR') {
+            if (($usuarioExistente['rol'] ?? '') !== $rolRecompensas) {
                 throw new RuntimeException('El nombre de usuario ya pertenece a otro rol.');
             }
 
@@ -160,13 +181,21 @@ try {
 
     session_start();
     session_regenerate_id(true);
-    $_SESSION['rol'] = 'OPERADOR';
+    $_SESSION['rol'] = $rolRecompensas;
     $_SESSION['nombre'] = trim($nombre . ' ' . $apellidoP . ' ' . $apellidoM);
     $_SESSION['id_usuario_login'] = (int) $idUsuario;
     $_SESSION['usuario'] = $usuario;
     $_SESSION['origen_sso'] = 'LOGISTICA';
+    $_SESSION['id_camion_logistica'] = $rolRecompensas === 'OPERADOR' && $idCamionLogistica ? $idCamionLogistica : null;
+    $_SESSION['camion_logistica'] = $rolRecompensas === 'OPERADOR' ? $camionLogistica : '';
 
-    header('Location: ' . $URL . '/operador/menu_operador.php');
+    $destino = match ($rolRecompensas) {
+        'OPERADOR' => '/operador/menu_operador.php',
+        'DOSIFICADOR' => '/operador/registrar_remision_manual.php',
+        default => '/clientes/registrar_cliente.php?tab=dashboard',
+    };
+
+    header('Location: ' . $URL . $destino);
     exit;
 } catch (PDOException $e) {
     if ($pdo->inTransaction()) {

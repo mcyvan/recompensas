@@ -125,23 +125,27 @@ if (isset($_SESSION['mensaje_registro_usuario_eliminado'])) {
                         <div class="card card-success card-outline mb-4 col-sm-8">
 
                             <!--begin::Header-->
-                            <div class="card-header">
-                                <div class="card-title">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <div class="card-title mb-0">
                                     <b>Registro de Premio Nuevo</b>
                                 </div>
+                                <button class="btn btn-outline-success btn-sm ms-auto" type="button" data-bs-toggle="collapse" data-bs-target="#collapseAltaPremio" aria-expanded="false" aria-controls="collapseAltaPremio">
+                                    <i class="bi bi-chevron-down"></i> Abrir formulario
+                                </button>
                             </div>
                             <!--end::Header-->
 
                             <!--begin::Form-->
-                            <form
-                                class="needs-validation"
-                                novalidate
-                                action="../controller/controller_registrar_premio.php"
-                                method="POST"
-                                enctype="multipart/form-data">
+                            <div class="collapse" id="collapseAltaPremio">
+                                <form
+                                    class="needs-validation"
+                                    novalidate
+                                    action="../controller/controller_registrar_premio.php"
+                                    method="POST"
+                                    enctype="multipart/form-data">
 
-                                <!--begin::Body-->
-                                <div class="card-body">
+                                    <!--begin::Body-->
+                                    <div class="card-body">
 
                                     <!-- ROW -->
                                     <div class="row g-3 ">
@@ -291,24 +295,25 @@ if (isset($_SESSION['mensaje_registro_usuario_eliminado'])) {
 
                                     </div>
 
-                                </div>
-                                <!--end::Body-->
+                                    </div>
+                                    <!--end::Body-->
 
-                                <!--begin::Footer-->
-                                <div class="card-footer">
+                                    <!--begin::Footer-->
+                                    <div class="card-footer">
 
-                                    <button
-                                        class="btn btn-outline-success"
-                                        type="submit">
+                                        <button
+                                            class="btn btn-outline-success"
+                                            type="submit">
 
-                                        Registrar Premio
+                                            Registrar Premio
 
-                                    </button>
+                                        </button>
 
-                                </div>
-                                <!--end::Footer-->
+                                    </div>
+                                    <!--end::Footer-->
 
-                            </form>
+                                </form>
+                            </div>
                             <!--end::Form-->
 
                         </div>
@@ -458,7 +463,7 @@ if (isset($_SESSION['mensaje_registro_usuario_eliminado'])) {
     <?php include("../app/layout/footer_links.php"); ?>
     <script>
         $(document).ready(function() {
-            $('#tablaUsuarios').DataTable({
+            $('#tablaPremios').DataTable({
                 "language": {
                     "url": "//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json"
                 }

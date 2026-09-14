@@ -1,13 +1,17 @@
 <?php
 include('../app/config/config.php');
-session_start();
+include("../app/functions/auth.php");
+verificarSesion();
 
 // Obtener los datos del formulario
 $nombre = strtoupper(trim($_POST['nombre']));
 $apellido_p = strtoupper(trim($_POST['apellido_p']));
 $apellido_m = strtoupper(trim($_POST['apellido_m']));
-$correo = strtolower(trim($_POST['correo']));
 $telefono = trim($_POST['telefono']);
+$sin_correo = isset($_POST['sin_correo']) && $_POST['sin_correo'] === '1';
+$correo = $sin_correo
+    ? 'sin-correo-' . preg_replace('/[^0-9]/', '', $telefono) . '@clientes.local'
+    : strtolower(trim($_POST['correo'] ?? ''));
 $fecha_nacimiento = $_POST['fecha_nacimiento'];
 // $fecha_registro = date('Y-m-d');
 $usuario = strtoupper(trim($_SESSION['id_usuario_login']));
@@ -17,10 +21,16 @@ $id_vendedor = $_POST['id_vendedor'];
 
 
 
-if (empty($nombre) || empty($apellido_p) || empty($apellido_m) || empty($correo) || empty($telefono) || empty($fecha_nacimiento)) {
+if (empty($nombre) || empty($apellido_p) || empty($apellido_m) || empty($telefono) || empty($fecha_nacimiento) || (!$sin_correo && empty($correo))) {
     $_SESSION['mensaje_registro_cliente_existe'] = "Todos los campos son obligatorios y no pueden estar vacíos";
     header('Location: ' . $URL . '/clientes/registrar_cliente.php');
     exit(); // ¡Importante! Detiene la ejecución
+}
+
+if (!$sin_correo && !filter_var($correo, FILTER_VALIDATE_EMAIL)) {
+    $_SESSION['mensaje_registro_cliente_existe'] = "Ingresa un correo valido o selecciona Sin correo electronico";
+    header('Location: ' . $URL . '/clientes/registrar_cliente.php');
+    exit();
 }
 
 try {
