@@ -328,6 +328,49 @@ function obtenerClientesSinActividadPorVendedor(): array
     return $pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);
 }
 
+function obtenerTopClientesPorVendedor(int $limite = 3): array
+{
+    global $pdo;
+
+    $stmt = $pdo->query(
+        "SELECT
+            UPPER(u.usuario) AS clave_vendedor,
+            c.id_cliente,
+            TRIM(CONCAT(c.nombres, ' ', c.apellido_p, ' ', IFNULL(c.apellido_m, ''))) AS cliente,
+            COALESCE(SUM(
+                CASE
+                    WHEN m.tipo = 'ACUMULACION'
+                         AND (m.fecha_vencimiento IS NULL OR m.fecha_vencimiento >= CURRENT_DATE)
+                        THEN m.puntos
+                    WHEN m.tipo IN ('CANJE', 'AJUSTE')
+                         AND (m.fecha_vencimiento IS NULL OR m.fecha_vencimiento >= CURRENT_DATE)
+                        THEN m.puntos
+                    ELSE 0
+                END
+            ), 0) AS puntos
+         FROM tb_usuarios u
+         INNER JOIN tb_clientes c ON c.id_usuario = u.id_usuario
+         LEFT JOIN tb_movimientos_puntos m ON m.id_cliente = c.id_cliente
+         WHERE c.estatus = 1
+         GROUP BY u.id_usuario, u.usuario, c.id_cliente, cliente
+         ORDER BY u.usuario, puntos DESC, cliente"
+    );
+
+    $porVendedor = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+        $clave = $fila['clave_vendedor'];
+        $porVendedor[$clave] = $porVendedor[$clave] ?? [];
+
+        if ((float) $fila['puntos'] <= 0 || count($porVendedor[$clave]) >= $limite) {
+            continue;
+        }
+
+        $porVendedor[$clave][] = $fila;
+    }
+
+    return $porVendedor;
+}
+
 function obtenerUsuario(int $id_usuario)
 {
     global $pdo;
