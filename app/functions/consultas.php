@@ -328,6 +328,44 @@ function obtenerClientesSinActividadPorVendedor(): array
     return $pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);
 }
 
+function obtenerActividadPorPlanta(string $fechaInicio, string $fechaFin): array
+{
+    global $pdo;
+
+    $stmt = $pdo->prepare(
+        "SELECT
+            COALESCE(NULLIF(UPPER(TRIM(r.planta_crm)), ''), 'SIN PLANTA') AS planta,
+            u.usuario AS chofer,
+            COUNT(*) AS remisiones,
+            MAX(r.hora_inicio) AS ultima_remision
+         FROM tb_remisiones r
+         INNER JOIN tb_usuarios u ON u.id_usuario = r.id_operador
+         WHERE r.hora_inicio >= ? AND r.hora_inicio < DATE_ADD(?, INTERVAL 1 DAY)
+         GROUP BY planta, u.usuario
+         ORDER BY planta, remisiones DESC, chofer"
+    );
+    $stmt->execute([$fechaInicio, $fechaFin]);
+
+    $porPlanta = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+        $planta = $fila['planta'];
+        if (!isset($porPlanta[$planta])) {
+            $porPlanta[$planta] = ['planta' => $planta, 'remisiones' => 0, 'choferes' => []];
+        }
+        $porPlanta[$planta]['remisiones'] += (int) $fila['remisiones'];
+        $porPlanta[$planta]['choferes'][] = [
+            'chofer' => $fila['chofer'],
+            'remisiones' => (int) $fila['remisiones'],
+            'ultima_remision' => $fila['ultima_remision'],
+        ];
+    }
+
+    $porPlanta = array_values($porPlanta);
+    usort($porPlanta, static fn($a, $b) => $b['remisiones'] <=> $a['remisiones']);
+
+    return $porPlanta;
+}
+
 function obtenerTopClientesPorVendedor(int $limite = 3): array
 {
     global $pdo;

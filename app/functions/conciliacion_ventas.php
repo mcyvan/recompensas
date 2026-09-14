@@ -340,6 +340,32 @@ function obtenerConciliacionPorDia(PDO $pdo, array $filtros): array
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
+function obtenerConciliacionPorPlanta(PDO $pdo, array $filtros): array
+{
+    $stmt = $pdo->prepare(
+        "SELECT COALESCE(NULLIF(UPPER(TRIM(x.planta)), ''), 'SIN PLANTA') AS planta,
+                COUNT(*) AS remisiones_venta, SUM(x.metros) AS metros_venta,
+                SUM(x.en_recompensas) AS remisiones_registradas,
+                SUM(CASE WHEN x.en_recompensas = 1 THEN x.metros ELSE 0 END) AS metros_registrados
+         FROM (
+             SELECT v.fecha, v.remision, MAX(v.planta) AS planta, SUM(v.cantidad) AS metros,
+                    CASE WHEN EXISTS (
+                        SELECT 1 FROM tb_remisiones r
+                        WHERE UPPER(TRIM(r.folio_remision)) = v.remision
+                          AND r.estatus <> 'CANCELADO'
+                    ) THEN 1 ELSE 0 END AS en_recompensas
+             FROM tb_ventas_empresa v
+             WHERE v.es_concreto = 1 AND v.fecha BETWEEN ? AND ?
+               AND (? = '' OR UPPER(TRIM(v.planta)) = ?)
+             GROUP BY v.fecha, v.remision
+         ) x
+         GROUP BY planta
+         ORDER BY remisiones_venta DESC"
+    );
+    $stmt->execute([$filtros['fecha_inicio'], $filtros['fecha_fin'], $filtros['planta'], $filtros['planta']]);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
 function obtenerConciliacionPorVendedor(PDO $pdo, array $filtros): array
 {
     $stmt = $pdo->prepare(

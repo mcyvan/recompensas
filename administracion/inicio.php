@@ -8,10 +8,16 @@ $clientesxvendedor = obtenerTotalClientesxVendedor();
 $topClientesPorVendedor = obtenerTopClientesPorVendedor(3);
 
 try {
-    $coberturaBruta = obtenerConciliacionPorVendedor($pdo, filtrosConciliacionVentas($pdo, []));
+    // Sin fechas explicitas, filtrosConciliacionVentas() usa el mes en curso
+    // (del dia 1 a la fecha mas reciente cargada en tb_ventas_empresa).
+    $filtrosMes = filtrosConciliacionVentas($pdo, []);
+    $coberturaVendedorBruta = obtenerConciliacionPorVendedor($pdo, $filtrosMes);
+    $coberturaPlantaBruta = obtenerConciliacionPorPlanta($pdo, $filtrosMes);
 } catch (PDOException $e) {
     error_log($e->getMessage());
-    $coberturaBruta = [];
+    $filtrosMes = null;
+    $coberturaVendedorBruta = [];
+    $coberturaPlantaBruta = [];
 }
 
 // obtenerConciliacionPorVendedor() agrupa por el nombre tal como viene del
@@ -19,9 +25,30 @@ try {
 // funcion que usa para hacer match contra tb_usuarios) para poder cruzarlo
 // aqui contra el usuario real del vendedor.
 $coberturaPorVendedor = [];
-foreach ($coberturaBruta as $fila) {
+foreach ($coberturaVendedorBruta as $fila) {
     $coberturaPorVendedor[claveVendedorVenta((string) $fila['vendedor'])] = $fila;
 }
+
+$coberturaPorPlanta = [];
+foreach ($coberturaPlantaBruta as $fila) {
+    $coberturaPorPlanta[$fila['planta']] = $fila;
+}
+
+$actividadPorPlanta = [];
+if ($filtrosMes) {
+    foreach (obtenerActividadPorPlanta($filtrosMes['fecha_inicio'], $filtrosMes['fecha_fin']) as $fila) {
+        $actividadPorPlanta[$fila['planta']] = $fila;
+    }
+}
+
+// Union de plantas: una planta puede tener ventas cargadas y cero remisiones
+// registradas (justo el caso que se quiere detectar), o viceversa.
+$nombresPlanta = array_unique(array_merge(array_keys($coberturaPorPlanta), array_keys($actividadPorPlanta)));
+usort($nombresPlanta, static function ($a, $b) use ($coberturaPorPlanta) {
+    $ventaA = (int) ($coberturaPorPlanta[$a]['remisiones_venta'] ?? 0);
+    $ventaB = (int) ($coberturaPorPlanta[$b]['remisiones_venta'] ?? 0);
+    return $ventaB <=> $ventaA ?: strcmp($a, $b);
+});
 ?>
 <!doctype html>
 <html lang="es">
@@ -119,7 +146,76 @@ foreach ($coberturaBruta as $fila) {
             <div class="app-content">
                 <!--begin::Container-->
                 <div class="container-fluid">
+                    <div class="card m-2 shadow-lg">
+                        <h4 class="m-2">Actividad por planta</h4>
+                        <?php if ($filtrosMes): ?>
+                            <p class="text-muted mx-2 mb-3 small">
+                                Mes actual (<?= date('d/m/Y', strtotime($filtrosMes['fecha_inicio'])) ?> al <?= date('d/m/Y', strtotime($filtrosMes['fecha_fin'])) ?>).
+                                Cobertura = remisiones cargadas en el archivo de ventas de esa planta que ya estan registradas en Recompensas.
+                                Si un chofer no aparece en la lista, no ha subido remisiones en el periodo.
+                            </p>
+                        <?php else: ?>
+                            <p class="text-muted mx-2 mb-3 small">
+                                No fue posible calcular la cobertura de ventas (falta cargar el modulo de conciliacion).
+                            </p>
+                        <?php endif; ?>
+                        <div class="row m-2 g-3">
+                            <?php foreach ($nombresPlanta as $nombrePlanta):
+                                $cobertura = $coberturaPorPlanta[$nombrePlanta] ?? null;
+                                $ventaTotal = $cobertura ? (int) $cobertura['remisiones_venta'] : 0;
+                                $ventaRegistrada = $cobertura ? (int) $cobertura['remisiones_registradas'] : 0;
+                                $porcentajeCobertura = $ventaTotal > 0 ? ($ventaRegistrada * 100 / $ventaTotal) : null;
+                                $actividad = $actividadPorPlanta[$nombrePlanta] ?? ['remisiones' => 0, 'choferes' => []];
+                            ?>
+                                <div class="col-lg-3 col-md-4 col-6">
+                                    <!--begin::Planta Card-->
+                                    <div class="card h-100 shadow-sm">
+                                        <div class="card-header bg-primary text-white p-2">
+                                            <h3 class="mb-0"><?= (int) $actividad['remisiones'] ?></h3>
+                                            <small><?= htmlspecialchars($nombrePlanta, ENT_QUOTES, 'UTF-8') ?></small>
+                                        </div>
+                                        <div class="card-body p-2">
+                                            <div class="d-flex justify-content-between small text-muted">
+                                                <span>Cobertura</span>
+                                                <span><b><?= $porcentajeCobertura !== null ? number_format($porcentajeCobertura, 1) . '%' : 'N/D' ?></b></span>
+                                            </div>
+                                            <div class="progress mb-1" style="height:6px">
+                                                <div class="progress-bar bg-success" style="width:<?= $porcentajeCobertura !== null ? min(100, max(0, $porcentajeCobertura)) : 0 ?>%"></div>
+                                            </div>
+                                            <?php if ($porcentajeCobertura !== null): ?>
+                                                <div class="text-end text-muted mb-2" style="font-size:.7rem">
+                                                    <?= number_format($ventaRegistrada) ?>/<?= number_format($ventaTotal) ?> remisiones deberian llevar
+                                                </div>
+                                            <?php else: ?>
+                                                <div class="mb-2"></div>
+                                            <?php endif; ?>
 
+                                            <div class="small text-muted mb-1">Choferes</div>
+                                            <?php if ($actividad['choferes']): ?>
+                                                <ol class="mb-0 ps-3 small">
+                                                    <?php foreach ($actividad['choferes'] as $chofer): ?>
+                                                        <li class="text-truncate">
+                                                            <?= htmlspecialchars((string) $chofer['chofer'], ENT_QUOTES, 'UTF-8') ?>
+                                                            &mdash; <b><?= (int) $chofer['remisiones'] ?></b>
+                                                            <div class="text-muted" style="font-size:.7rem">
+                                                                ultima: <?= date('d/m H:i', strtotime((string) $chofer['ultima_remision'])) ?>
+                                                            </div>
+                                                        </li>
+                                                    <?php endforeach; ?>
+                                                </ol>
+                                            <?php else: ?>
+                                                <div class="text-muted small">Sin remisiones en el periodo</div>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                    <!--end::Planta Card-->
+                                </div>
+                            <?php endforeach; ?>
+                            <?php if (!$nombresPlanta): ?>
+                                <div class="col-12 text-muted">No hay datos de plantas en el periodo.</div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
                 </div>
                 <!--end::Container-->
             </div>
