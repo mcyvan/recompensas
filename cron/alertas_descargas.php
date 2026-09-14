@@ -14,6 +14,56 @@ if ((int) $bloqueo !== 1) {
 }
 
 try {
+    // Usa la misma hora y zona horaria configurada en la aplicación.
+    $ahora = date('Y-m-d H:i:s');
+
+    // Auto-cierre de remisiones que llevan más de 45 minutos EN PROCESO sin
+    // finalizar. Evita que un operador quede bloqueado (menu_operador.php no
+    // permite iniciar una remisión nueva mientras tenga una EN PROCESO) y
+    // refleja la misma regla de puntos que controller_finalizar_remision.php
+    // (más de 45 minutos = 0 puntos).
+    $UMBRAL_AUTO_CIERRE_MINUTOS = 45;
+
+    $stmtCierre = $pdo->prepare(
+        "SELECT id_remision, folio_remision, id_cliente,
+            TIMESTAMPDIFF(MINUTE, hora_inicio, ?) AS minutos_transcurridos
+         FROM tb_remisiones
+         WHERE estatus = 'EN PROCESO'
+           AND hora_fin IS NULL
+           AND TIMESTAMPDIFF(MINUTE, hora_inicio, ?) > ?
+         ORDER BY hora_inicio"
+    );
+    $stmtCierre->execute([$ahora, $ahora, $UMBRAL_AUTO_CIERRE_MINUTOS]);
+    $remisionesCierre = $stmtCierre->fetchAll(PDO::FETCH_ASSOC);
+
+    $actualizarCierre = $pdo->prepare(
+        "UPDATE tb_remisiones
+         SET hora_fin = ?, minutos_colado = ?, puntos = 0, estatus = 'FINALIZADO'
+         WHERE id_remision = ? AND estatus = 'EN PROCESO'"
+    );
+    $insertarMovimientoCierre = $pdo->prepare(
+        "INSERT INTO tb_movimientos_puntos
+            (id_cliente, id_remision, tipo, puntos, fecha_vencimiento, observaciones)
+         VALUES (?, ?, 'ACUMULACION', 0, '2026-12-20', 'Remisión finalizada automáticamente después de 45 minutos')"
+    );
+
+    foreach ($remisionesCierre as $remisionCierre) {
+        $minutos = (int) $remisionCierre['minutos_transcurridos'];
+        $actualizarCierre->execute([$ahora, $minutos, $remisionCierre['id_remision']]);
+
+        if ($actualizarCierre->rowCount() > 0) {
+            $insertarMovimientoCierre->execute([
+                $remisionCierre['id_cliente'],
+                $remisionCierre['id_remision'],
+            ]);
+            echo "Remision cerrada automaticamente: {$remisionCierre['folio_remision']}\n";
+        }
+    }
+
+    if (!$remisionesCierre) {
+        echo "Sin remisiones para auto-cierre.\n";
+    }
+
     $configuracion = $pdo->query(
         'SELECT habilitado, umbral_minutos, correos
          FROM tb_configuracion_alertas WHERE id_configuracion = 1 LIMIT 1'
@@ -28,9 +78,6 @@ try {
         preg_split('/[\s,;]+/', (string) $configuracion['correos']) ?: []
     )));
     $umbral = max(30, (int) $configuracion['umbral_minutos']);
-
-    // Usa la misma hora y zona horaria configurada en la aplicación.
-    $ahora = date('Y-m-d H:i:s');
 
     $stmt = $pdo->prepare(
         "SELECT r.id_remision, r.folio_remision, r.hora_inicio, r.camion_logistica,

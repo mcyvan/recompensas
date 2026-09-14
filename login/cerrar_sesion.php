@@ -24,6 +24,8 @@ if (ini_get('session.use_cookies')) {
 
 session_destroy();
 
+setcookie(COOKIE_ORIGEN_LOGIN, '', time() - 42000, '/', '', !empty($_SERVER['HTTPS']), true);
+
 $solicitaLoginLocal = ($_GET['destino'] ?? '') === 'login';
 $destino = $solicitaLoginLocal
     ? $URL . '/login'

@@ -65,6 +65,19 @@ if (!$resultado) {
         $_SESSION['id_usuario_login'] = $id_usuario;
         $_SESSION['usuario'] = $usuario;
 
+        // OPERADOR y DOSIFICADOR siempre vuelven al login de LOGISTICA
+        // cuando su sesión caduque (ver auth.php::verificarSesion()).
+        $rolesLogistica = ['OPERADOR', 'DOSIFICADOR'];
+        setcookie(
+            COOKIE_ORIGEN_LOGIN,
+            in_array($rol, $rolesLogistica, true) ? 'LOGISTICA' : 'LOCAL',
+            time() + 60 * 60 * 24,
+            '/',
+            '',
+            !empty($_SERVER['HTTPS']),
+            true
+        );
+
         // Redirigir dependiendo del usuario
         if ($_SESSION['rol'] == "ADMINISTRADOR") {
             header('Location: ../administracion/inicio.php');

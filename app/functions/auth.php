@@ -8,8 +8,17 @@ if (session_status() === PHP_SESSION_NONE) {
 function verificarSesion()
 {
     if (!isset($_SESSION['usuario'])) {
-        // Redirigir a la página de login si no hay sesión activa
-        header('Location: ' . 'recompensas' . '/login');  // Ajusta la URL según tu ruta
+        // Redirigir a la página de login si no hay sesión activa.
+        // OPERADOR, DOSIFICADOR y cualquier usuario que entró vía SSO de
+        // LOGISTICA deben volver al login de LOGISTICA, no al local. Esa
+        // información vivía solo en $_SESSION, que ya se perdió si la sesión
+        // caducó, por eso se apoya en COOKIE_ORIGEN_LOGIN (ver
+        // controller_login.php y login/acceso_logistica.php).
+        global $URL;
+        $destino = (($_COOKIE[COOKIE_ORIGEN_LOGIN] ?? '') === 'LOGISTICA')
+            ? LOGISTICA_LOGIN_URL
+            : $URL . '/login';
+        header('Location: ' . $destino);
         exit(); // Termina el script para que no continúe ejecutándose
     }
 

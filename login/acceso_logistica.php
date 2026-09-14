@@ -189,6 +189,18 @@ try {
     $_SESSION['id_camion_logistica'] = $rolRecompensas === 'OPERADOR' && $idCamionLogistica ? $idCamionLogistica : null;
     $_SESSION['camion_logistica'] = $rolRecompensas === 'OPERADOR' ? $camionLogistica : '';
 
+    // Cualquier usuario que entra vía SSO de LOGISTICA vuelve al login de
+    // LOGISTICA cuando su sesión caduque (ver auth.php::verificarSesion()).
+    setcookie(
+        COOKIE_ORIGEN_LOGIN,
+        'LOGISTICA',
+        time() + 60 * 60 * 24,
+        '/',
+        '',
+        !empty($_SERVER['HTTPS']),
+        true
+    );
+
     $destino = match ($rolRecompensas) {
         'OPERADOR' => '/operador/menu_operador.php',
         'DOSIFICADOR' => '/operador/registrar_remision_manual.php',
