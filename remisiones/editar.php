@@ -2,6 +2,7 @@
 require_once("../app/config/config.php");
 require_once("../app/functions/auth.php");
 require_once("../app/functions/remisiones.php");
+require_once("../app/functions/conciliacion_ventas.php");
 
 verificarSesion();
 verificarPermisoRemisiones();
@@ -25,6 +26,10 @@ if (!$remision) {
 }
 
 $operadores = obtenerOperadores($pdo);
+$plantasDisponibles = obtenerPlantasConciliacion($pdo);
+if (!empty($remision['planta_crm']) && !in_array($remision['planta_crm'], $plantasDisponibles, true)) {
+    $plantasDisponibles[] = $remision['planta_crm'];
+}
 $csrf = $_SESSION['csrf_remisiones'];
 ?>
 <!doctype html>
@@ -109,6 +114,21 @@ $csrf = $_SESSION['csrf_remisiones'];
                                         <div class="col-md-4">
                                             <label class="form-label"><b>Puntos actuales</b></label>
                                             <input type="text" class="form-control" value="<?= number_format((float) ($remision['puntos'] ?? 0), 2) ?>" disabled>
+                                        </div>
+                                    </div>
+
+                                    <div class="row g-3 mt-1">
+                                        <div class="col-md-4">
+                                            <label class="form-label"><b>Planta</b></label>
+                                            <select name="planta_crm" class="form-control">
+                                                <option value="">Sin planta</option>
+                                                <?php foreach ($plantasDisponibles as $planta): ?>
+                                                    <option value="<?= htmlspecialchars($planta, ENT_QUOTES, 'UTF-8') ?>" <?= ($remision['planta_crm'] ?? '') === $planta ? 'selected' : '' ?>>
+                                                        <?= htmlspecialchars($planta, ENT_QUOTES, 'UTF-8') ?>
+                                                    </option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                            <div class="form-text">Util cuando la remision se registro manualmente y no trae planta del QR.</div>
                                         </div>
                                     </div>
 

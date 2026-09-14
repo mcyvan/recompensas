@@ -240,6 +240,7 @@ function obtenerRemision(PDO $pdo, int $idRemision): ?array
             r.minutos_colado,
             r.puntos,
             r.estatus,
+            r.planta_crm,
             c.nombres,
             c.apellido_p,
             c.apellido_m,

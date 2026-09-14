@@ -3,6 +3,7 @@ require_once('../app/config/config.php');
 require_once('../app/functions/auth.php');
 require_once('../app/functions/remisiones.php');
 require_once('../app/functions/consultas_puntos.php');
+require_once('../app/functions/conciliacion_ventas.php');
 
 verificarSesion();
 verificarPermisoRemisiones();
@@ -36,6 +37,8 @@ $idOperador = filter_var($_POST['id_operador'] ?? null, FILTER_VALIDATE_INT);
 $estatus = strtoupper(trim($_POST['estatus'] ?? ''));
 $horaInicioTexto = trim($_POST['hora_inicio'] ?? '');
 $horaFinTexto = trim($_POST['hora_fin'] ?? '');
+$plantaCrm = strtoupper(trim($_POST['planta_crm'] ?? ''));
+$plantaCrm = $plantaCrm !== '' ? $plantaCrm : null;
 
 try {
     if (!$idRemision) {
@@ -81,7 +84,7 @@ try {
     $pdo->beginTransaction();
 
     $stmt = $pdo->prepare(
-        "SELECT id_remision, id_cliente, folio_remision, estatus
+        "SELECT id_remision, id_cliente, folio_remision, estatus, planta_crm
          FROM tb_remisiones
          WHERE id_remision = ?
          FOR UPDATE"
@@ -91,6 +94,13 @@ try {
 
     if (!$remisionActual) {
         throw new RuntimeException('La remision no existe.');
+    }
+
+    if ($plantaCrm !== null && $plantaCrm !== $remisionActual['planta_crm']) {
+        $plantasValidas = obtenerPlantasConciliacion($pdo);
+        if (!in_array($plantaCrm, $plantasValidas, true)) {
+            throw new RuntimeException('Planta invalida.');
+        }
     }
 
     $stmt = $pdo->prepare(
@@ -135,7 +145,7 @@ try {
         "UPDATE tb_remisiones
          SET id_cliente = ?, telefono = ?, id_operador = ?, folio_remision = ?,
              volumen = ?, hora_inicio = ?, hora_fin = ?, minutos_colado = ?,
-             puntos = ?, estatus = ?
+             puntos = ?, estatus = ?, planta_crm = ?
          WHERE id_remision = ?"
     );
     $stmt->execute([
@@ -149,6 +159,7 @@ try {
         $minutosColado,
         $puntosNuevos,
         $estatus,
+        $plantaCrm,
         $idRemision,
     ]);
 
