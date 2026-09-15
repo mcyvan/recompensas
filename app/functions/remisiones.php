@@ -288,7 +288,8 @@ function obtenerVendedoresRemisiones(PDO $pdo): array
 
 function joinVendedorComercialReporte(): string
 {
-    return "LEFT JOIN (
+    return "LEFT JOIN tb_usuarios_detalle vendedor_detalle ON vendedor_detalle.id_usuario = vendedor.id_usuario
+            LEFT JOIN (
                 SELECT UPPER(TRIM(remision)) AS remision,
                        CASE
                            WHEN UPPER(MAX(TRIM(vendedor))) LIKE '%AMERICAS%' THEN 'AMERICAS'
@@ -307,7 +308,16 @@ function joinVendedorComercialReporte(): string
 
 function expresionVendedorComercialReporte(): string
 {
-    return "COALESCE(NULLIF(venta_reporte.vendedor_archivo, ''), NULLIF(TRIM(vendedor.usuario), ''), 'Sin vendedor')";
+    // Prioriza el nombre del vendedor asignado al cliente en Recompensas (siempre
+    // el mismo por usuario) sobre el nombre que trae el archivo de ventas, que
+    // solo existe para las remisiones que ya se conciliaron y antes partia a un
+    // mismo vendedor en dos filas distintas ("MIGUEL RODRIGUEZ" vs "MRODRIGUEZ").
+    return "COALESCE(
+        NULLIF(TRIM(CONCAT(vendedor_detalle.nombres, ' ', vendedor_detalle.apellido_p)), ''),
+        NULLIF(venta_reporte.vendedor_archivo, ''),
+        NULLIF(TRIM(vendedor.usuario), ''),
+        'Sin vendedor'
+    )";
 }
 
 function obtenerVendedoresComercialesReporte(PDO $pdo): array
