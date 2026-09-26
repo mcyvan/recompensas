@@ -166,6 +166,12 @@ $remisionesManualesDosificadorActivas = remisionesManualesDosificadorHabilitadas
                 <p>ALERTAS DESCARGAS</p>
               </a>
             </li>
+            <li class="nav-item">
+              <a href="../administracion/bitacora.php" class="nav-link">
+                <i class="bi bi-journal-text"></i>
+                <p>BITACORA DE CAMBIOS</p>
+              </a>
+            </li>
           <?php } ?>
           <?php if ($_SESSION['rol'] === 'ADMINISTRADOR') { ?>
             <li class="nav-item">

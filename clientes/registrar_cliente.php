@@ -472,10 +472,12 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
                                                             ?>
                                                             <div class="acciones-cliente">
                                                                 <?php if ($puedeAdministrarClientes): ?>
+                                                                    <?php if ($esAdministracion): ?>
                                                                     <a href="../controller/controller_eliminar_cliente.php?id_cliente=<?php echo $cliente['id_cliente']; ?>" class="btn btn-outline-danger" title="Desactivar cliente"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-person-dash-fill" viewBox="0 0 16 16">
                                                                         <path fill-rule="evenodd" d="M11 7.5a.5.5 0 0 1 .5-.5h4a.5.5 0 0 1 0 1h-4a.5.5 0 0 1-.5-.5" />
                                                                         <path d="M1 14s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6" />
                                                                     </svg></a>
+                                                                    <?php endif; ?>
                                                                     <a href="../clientes/editar_cliente.php?id_cliente=<?php echo $cliente['id_cliente']; ?>" class="btn btn-outline-warning" title="Editar cliente"><svg fill="currentColor" width="16" height="16" viewBox="0 0 640 640" xmlns="http://www.w3.org/2000/svg">
                                                                         <path d="M224 256c70.7 0 128-57.3 128-128S294.7 0 224 0 96 57.3 96 128s57.3 128 128 128zm89.6 32h-16.7c-22.2 10.2-46.9 16-72.9 16s-50.6-5.8-72.9-16h-16.7C60.2 288 0 348.2 0 422.4V464c0 26.5 21.5 48 48 
                                                                     48h274.9c-2.4-6.8-3.4-14-2.6-21.3l6.8-60.9 1.2-11.1 7.9-7.9 77.3-77.3c-24.5-27.7-60-45.5-99.9-45.5zm45.3 145.3l-6.8 61c-1.1 10.2 7.5 18.8 17.6 17.6l60.9-6.8 137.9-137.9-71.7-71.7-137.9 137.8zM633 268.9L595.1 231c-9.3-9.3-24.5-9.3-33.8 0l-37.8 37.8-4.1 4.1 71.8 71.7 41.8-41.8c9.3-9.4 9.3-24.5 0-33.9z" />
@@ -666,6 +668,9 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
                     <button type="button" class="btn btn-outline-primary" id="btnDescargarQrCliente">
                         <i class="bi bi-download"></i> Descargar QR
                     </button>
+                    <button type="button" class="btn btn-success" id="btnEnviarWhatsappCliente">
+                        <i class="bi bi-whatsapp"></i> Enviar por WhatsApp
+                    </button>
                     <button type="button" class="btn btn-primary" id="btnImprimirCredencialCliente">
                         <i class="bi bi-printer"></i> Imprimir credencial
                     </button>
@@ -835,6 +840,228 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
             enlace.href = imagenQr;
             enlace.download = `qr_cliente_${telefono}.png`;
             enlace.click();
+        });
+
+        // ===== Envio de la credencial por WhatsApp =====
+        function mensajeWhatsappCredencial(nombre) {
+            return `Hola ${nombre}, te compartimos tu credencial de Cliente Recompensas de Concretos Americas. ` +
+                'Guarda esta imagen y muestra el codigo QR al operador cuando llegue tu concreto.';
+        }
+
+        const imagenLogoCredencial = new Image();
+        const logoCredencialCargado = new Promise(function(resolver) {
+            imagenLogoCredencial.onload = function() { resolver(true); };
+            imagenLogoCredencial.onerror = function() { resolver(false); };
+        });
+        imagenLogoCredencial.src = logoCredencial;
+
+        function dividirTextoEnLineas(ctx, texto, anchoMax) {
+            const lineas = [];
+            let linea = '';
+            texto.split(/\s+/).forEach(function(palabra) {
+                const prueba = linea ? linea + ' ' + palabra : palabra;
+                if (ctx.measureText(prueba).width > anchoMax && linea) {
+                    lineas.push(linea);
+                    linea = palabra;
+                } else {
+                    linea = prueba;
+                }
+            });
+            if (linea) {
+                lineas.push(linea);
+            }
+            return lineas;
+        }
+
+        // Reduce la letra hasta que el nombre completo quepa en maxLineas (nunca se corta).
+        function dibujarNombreAjustado(ctx, texto, x, y, anchoMax, maxLineas) {
+            let tamano = 46;
+            let lineas = [];
+            for (; tamano >= 26; tamano -= 4) {
+                ctx.font = `800 ${tamano}px Arial, sans-serif`;
+                lineas = dividirTextoEnLineas(ctx, texto, anchoMax);
+                const cabeAncho = lineas.every(function(linea) {
+                    return ctx.measureText(linea).width <= anchoMax;
+                });
+                if (lineas.length <= maxLineas && cabeAncho) {
+                    break;
+                }
+            }
+            const alturaLinea = Math.round(tamano * 1.15);
+            lineas.forEach(function(linea, indice) {
+                ctx.fillText(linea, x, y + indice * alturaLinea);
+            });
+            return lineas.length * alturaLinea;
+        }
+
+        function crearQrAltaResolucion(textoQr, tamanoObjetivo) {
+            const opciones = function(tamano) {
+                return {
+                    text: textoQr,
+                    width: tamano,
+                    height: tamano,
+                    colorDark: '#000000',
+                    colorLight: '#ffffff',
+                    correctLevel: QRCode.CorrectLevel.M
+                };
+            };
+
+            // El tamano final es multiplo entero del numero de modulos para que cada
+            // cuadro salga nitido (sin bordes borrosos) y el celular lo lea mejor.
+            const sonda = new QRCode(document.createElement('div'), opciones(tamanoObjetivo));
+            const modulos = sonda._oQRCode.getModuleCount();
+            const tamanoEntero = modulos * Math.max(1, Math.floor(tamanoObjetivo / modulos));
+
+            const temporal = document.createElement('div');
+            new QRCode(temporal, opciones(tamanoEntero));
+            return temporal.querySelector('canvas');
+        }
+
+        async function crearImagenCredencial(datos) {
+            const ancho = 1200;
+            const alto = 756;
+            const lienzo = document.createElement('canvas');
+            lienzo.width = ancho;
+            lienzo.height = alto;
+            const ctx = lienzo.getContext('2d');
+
+            const fondo = ctx.createLinearGradient(0, 0, ancho, alto);
+            fondo.addColorStop(0, '#ffffff');
+            fondo.addColorStop(0.58, '#f7f9fc');
+            fondo.addColorStop(1, '#eef4fb');
+            ctx.fillStyle = fondo;
+            ctx.fillRect(0, 0, ancho, alto);
+
+            ctx.fillStyle = '#c41230';
+            ctx.fillRect(0, 0, ancho * 0.4, 44);
+            ctx.fillStyle = '#174a94';
+            ctx.fillRect(ancho * 0.4, 0, ancho * 0.6, 44);
+            ctx.strokeStyle = '#d7dde8';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(2, 2, ancho - 4, alto - 4);
+
+            // El QR ocupa la mitad derecha de la tarjeta, lo mas grande posible.
+            const margen = 60;
+            const relleno = 44;
+            const qr = crearQrAltaResolucion(datos.textoQr, 500);
+            const lado = qr ? qr.width + relleno * 2 : 0;
+            const cajaX = ancho - margen - lado;
+            const anchoTexto = (lado ? cajaX : ancho) - margen - 30;
+
+            if (await logoCredencialCargado && imagenLogoCredencial.naturalWidth) {
+                const escala = Math.min(340 / imagenLogoCredencial.naturalWidth, 160 / imagenLogoCredencial.naturalHeight);
+                ctx.drawImage(imagenLogoCredencial, margen, 76,
+                    imagenLogoCredencial.naturalWidth * escala, imagenLogoCredencial.naturalHeight * escala);
+            }
+
+            ctx.textBaseline = 'alphabetic';
+            ctx.fillStyle = '#c41230';
+            ctx.font = '800 28px Arial, sans-serif';
+            ctx.fillText('CLIENTE RECOMPENSAS', margen, 278);
+
+            ctx.fillStyle = '#172033';
+            let y = 340;
+            y += dibujarNombreAjustado(ctx, String(datos.nombre || '').toUpperCase(), margen, y, anchoTexto, 3) + 14;
+
+            const dibujarDato = function(etiqueta, valor) {
+                ctx.font = '34px Arial, sans-serif';
+                ctx.fillStyle = '#42526a';
+                ctx.fillText(etiqueta + ' ', margen, y);
+                const desplazamiento = ctx.measureText(etiqueta + ' ').width;
+                ctx.font = '800 34px Arial, sans-serif';
+                ctx.fillStyle = '#172033';
+                ctx.fillText(valor, margen + desplazamiento, y);
+                y += 50;
+            };
+            dibujarDato('Telefono:', datos.telefono);
+            dibujarDato('ID:', datos.idCliente);
+
+            if (qr) {
+                const cajaY = 44 + (alto - 44 - lado) / 2;
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(cajaX, cajaY, lado, lado);
+                ctx.strokeStyle = '#d7dde8';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(cajaX, cajaY, lado, lado);
+                ctx.imageSmoothingEnabled = false;
+                ctx.drawImage(qr, cajaX + relleno, cajaY + relleno, qr.width, qr.height);
+            }
+
+            return new Promise(function(resolver) {
+                lienzo.toBlob(resolver, 'image/png');
+            });
+        }
+
+        document.getElementById('btnEnviarWhatsappCliente').addEventListener('click', async function() {
+            if (!datosCredencialCliente) {
+                return;
+            }
+
+            const boton = this;
+            const datos = datosCredencialCliente;
+            const digitos = String(datos.telefono || '').replace(/\D/g, '');
+            const telefonoWa = digitos.length === 10 ? '52' + digitos : digitos;
+            const mensaje = mensajeWhatsappCredencial(datos.nombre);
+            const urlWa = `https://wa.me/${telefonoWa}?text=${encodeURIComponent(mensaje)}`;
+            const esMovil = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+            boton.disabled = true;
+            // En escritorio se abre el chat antes de generar la imagen para que el navegador no bloquee la ventana.
+            const ventanaWa = esMovil ? null : window.open('about:blank', '_blank');
+
+            try {
+                const blob = await crearImagenCredencial(datos);
+                if (!blob) {
+                    throw new Error('No se genero la imagen');
+                }
+
+                const nombreArchivo = `credencial_${digitos || datos.idCliente}.png`;
+                const archivo = new File([blob], nombreArchivo, {
+                    type: 'image/png'
+                });
+
+                if (esMovil && navigator.canShare && navigator.canShare({
+                        files: [archivo]
+                    })) {
+                    try {
+                        await navigator.share({
+                            files: [archivo],
+                            text: mensaje
+                        });
+                    } catch (errorCompartir) {
+                        if (errorCompartir.name !== 'AbortError') {
+                            throw errorCompartir;
+                        }
+                    }
+                    return;
+                }
+
+                const enlace = document.createElement('a');
+                enlace.href = URL.createObjectURL(blob);
+                enlace.download = nombreArchivo;
+                enlace.click();
+                setTimeout(function() {
+                    URL.revokeObjectURL(enlace.href);
+                }, 10000);
+
+                const ventanaChat = ventanaWa || window.open(urlWa, '_blank');
+                if (ventanaWa) {
+                    ventanaWa.location.href = urlWa;
+                }
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Credencial descargada',
+                    html: ventanaChat ?
+                        'Adjunta la imagen descargada en el chat de WhatsApp que se abrio.' : `Adjunta la imagen descargada en el chat: <a href="${urlWa}" target="_blank" rel="noopener">abrir WhatsApp</a>.`
+                });
+            } catch (error) {
+                if (ventanaWa) {
+                    ventanaWa.close();
+                }
+                Swal.fire('', 'No se pudo preparar la credencial para WhatsApp.', 'error');
+            } finally {
+                boton.disabled = false;
+            }
         });
 
         document.getElementById('btnImprimirCredencialCliente').addEventListener('click', function() {

@@ -124,7 +124,7 @@ $clienteSinCorreo = str_starts_with((string) ($cliente['correo'] ?? ''), 'sin-co
                                         <!--begin::Col-->
                                         <div class="col-md-5">
                                             <label for="" class="form-label"><b>Vendedor</b></label>
-                                            <select name="id_vendedor" id="vendedor" class="form-control">
+                                            <select name="id_vendedor" id="vendedor" class="form-control" <?php echo (($_SESSION['rol'] ?? '') === 'VENDEDOR') ? 'disabled' : ''; ?>>
                                                 <option value="">Seleccione un vendedor</option>
                                                 <?php foreach ($vendedores as $vendedor): ?>
                                                     <option value="<?php echo $vendedor['id_usuario']; ?>" <?php echo ($vendedor['id_usuario'] == $cliente['id_usuario']) ? 'selected' : ''; ?>>
@@ -138,10 +138,14 @@ $clienteSinCorreo = str_starts_with((string) ($cliente['correo'] ?? ''), 'sin-co
                                     <div class="row">
                                         <div class="col-md-5 mt-3">
                                             <label for="" class="form-label"><b>Estatus</b></label>
-                                            <select name="id_estatus" id="estatus" class="form-control">
+                                            <?php $estatusBloqueado = ($_SESSION['rol'] ?? '') === 'VENDEDOR'; ?>
+                                            <select name="id_estatus" id="estatus" class="form-control" <?php echo $estatusBloqueado ? 'disabled' : ''; ?>>
                                                 <option value="1" <?php echo ($cliente['estatus'] == '1') ? 'selected' : ''; ?>>ACTIVO</option>
                                                 <option value="0" <?php echo ($cliente['estatus'] == '0') ? 'selected' : ''; ?>>INACTIVO</option>
                                             </select>
+                                            <?php if ($estatusBloqueado): ?>
+                                                <div class="form-text">Solo administracion puede cambiar el estatus y el vendedor asignado.</div>
+                                            <?php endif; ?>
                                         </div>
                                     </div>
 
