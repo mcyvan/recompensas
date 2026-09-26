@@ -52,10 +52,13 @@ try {
         $actualizarCierre->execute([$ahora, $minutos, $remisionCierre['id_remision']]);
 
         if ($actualizarCierre->rowCount() > 0) {
-            $insertarMovimientoCierre->execute([
-                $remisionCierre['id_cliente'],
-                $remisionCierre['id_remision'],
-            ]);
+            // Una remision sin cliente registrado no tiene a quien abonar puntos.
+            if (!empty($remisionCierre['id_cliente'])) {
+                $insertarMovimientoCierre->execute([
+                    $remisionCierre['id_cliente'],
+                    $remisionCierre['id_remision'],
+                ]);
+            }
             echo "Remision cerrada automaticamente: {$remisionCierre['folio_remision']}\n";
         }
     }

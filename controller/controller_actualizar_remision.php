@@ -4,6 +4,7 @@ require_once('../app/functions/auth.php');
 require_once('../app/functions/remisiones.php');
 require_once('../app/functions/consultas_puntos.php');
 require_once('../app/functions/conciliacion_ventas.php');
+require_once('../app/functions/bitacora.php');
 
 verificarSesion();
 verificarPermisoRemisiones();
@@ -49,7 +50,8 @@ try {
         throw new RuntimeException('Formato de folio invalido.');
     }
 
-    if (strlen($telefono) !== 10) {
+    // Vacio solo se permite en una remision que todavia no tiene cliente ligado (se valida mas abajo).
+    if ($telefono !== '' && strlen($telefono) !== 10) {
         throw new RuntimeException('El telefono debe tener 10 digitos.');
     }
 
@@ -84,7 +86,8 @@ try {
     $pdo->beginTransaction();
 
     $stmt = $pdo->prepare(
-        "SELECT id_remision, id_cliente, folio_remision, estatus, planta_crm
+        "SELECT id_remision, id_cliente, folio_remision, estatus, planta_crm, telefono,
+                id_operador, volumen, hora_inicio, hora_fin
          FROM tb_remisiones
          WHERE id_remision = ?
          FOR UPDATE"
@@ -127,7 +130,13 @@ try {
         throw new RuntimeException('El chofer seleccionado no existe o esta inactivo.');
     }
 
-    $idCliente = (int) obtenerIdClienteTelefono($telefono);
+    if ($telefono === '' && !empty($remisionActual['id_cliente'])) {
+        throw new RuntimeException('El telefono debe tener 10 digitos.');
+    }
+
+    // Una remision registrada sin cliente puede seguir sin cliente hasta que se conozca su telefono.
+    $idCliente = $telefono !== '' ? (int) obtenerIdClienteTelefono($telefono) : null;
+    $ligandoCliente = $idCliente !== null && empty($remisionActual['id_cliente']);
 
     $minutosColado = null;
     $puntosNuevos = null;
@@ -135,7 +144,7 @@ try {
 
     if ($estatus === 'FINALIZADO') {
         $minutosColado = (int) floor(($horaFin->getTimestamp() - $horaInicio->getTimestamp()) / 60);
-        $puntosNuevos = $minutosColado <= 45 ? obtenerPuntos($volumen) : 0.0;
+        $puntosNuevos = ($minutosColado <= 45 && $idCliente !== null) ? obtenerPuntos($volumen) : 0.0;
         $horaFinSql = $horaFin->format('Y-m-d H:i:s');
     } elseif ($estatus === 'CANCELADO') {
         $puntosNuevos = 0.0;
@@ -163,6 +172,43 @@ try {
         $idRemision,
     ]);
 
+    if ($ligandoCliente) {
+        $stmt = $pdo->prepare(
+            "UPDATE tb_remisiones SET id_usuario_liga = ?, fecha_liga = NOW() WHERE id_remision = ?"
+        );
+        $stmt->execute([(int) ($_SESSION['id_usuario_login'] ?? 0), $idRemision]);
+    }
+
+    $formatoBitacora = static fn($valor) => $valor === null ? null : number_format((float) $valor, 2, '.', '');
+    registrarBitacoraCambios(
+        $pdo,
+        'REMISION',
+        $idRemision,
+        $ligandoCliente ? 'LIGAR_CLIENTE' : 'ACTUALIZAR',
+        [
+            'id_cliente' => $remisionActual['id_cliente'],
+            'telefono' => $remisionActual['telefono'],
+            'id_operador' => $remisionActual['id_operador'],
+            'folio_remision' => $remisionActual['folio_remision'],
+            'volumen' => $formatoBitacora($remisionActual['volumen']),
+            'estatus' => $remisionActual['estatus'],
+            'planta_crm' => $remisionActual['planta_crm'],
+            'hora_inicio' => substr((string) $remisionActual['hora_inicio'], 0, 16),
+            'hora_fin' => $remisionActual['hora_fin'] ? substr((string) $remisionActual['hora_fin'], 0, 16) : null,
+        ],
+        [
+            'id_cliente' => $idCliente,
+            'telefono' => $telefono,
+            'id_operador' => $idOperador,
+            'folio_remision' => $folio,
+            'volumen' => $formatoBitacora($volumen),
+            'estatus' => $estatus,
+            'planta_crm' => $plantaCrm,
+            'hora_inicio' => $horaInicio->format('Y-m-d H:i'),
+            'hora_fin' => $horaFin ? $horaFin->format('Y-m-d H:i') : null,
+        ]
+    );
+
     $puntosObjetivo = $estatus === 'FINALIZADO' ? round((float) $puntosNuevos, 2) : 0.0;
 
     $stmt = $pdo->prepare(
@@ -180,7 +226,8 @@ try {
         ? 'Correccion remision ' . $folio
         : 'Remision ' . $folio . ' sin acumulacion de puntos';
 
-    if ($movimiento) {
+    // Sin cliente no hay a quien abonar puntos; el movimiento se genera cuando se ligue uno.
+    if ($idCliente !== null && $movimiento) {
         $stmt = $pdo->prepare(
             "UPDATE tb_movimientos_puntos
              SET id_cliente = ?, tipo = ?, puntos = ?, fecha_vencimiento = ?,
@@ -195,7 +242,7 @@ try {
             $observacionMovimiento,
             (int) $movimiento['id_movimiento'],
         ]);
-    } elseif ($puntosObjetivo != 0.0 || $estatus === 'CANCELADO') {
+    } elseif ($idCliente !== null && ($puntosObjetivo != 0.0 || $estatus === 'CANCELADO')) {
         $stmt = $pdo->prepare(
             "INSERT INTO tb_movimientos_puntos
                 (id_cliente, id_remision, tipo, puntos, fecha_movimiento, fecha_vencimiento, observaciones)

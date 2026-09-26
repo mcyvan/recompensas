@@ -25,6 +25,7 @@ if (!$remision) {
     exit;
 }
 
+$sinCliente = empty($remision['id_cliente']);
 $operadores = obtenerOperadores($pdo);
 $plantasDisponibles = obtenerPlantasConciliacion($pdo);
 if (!empty($remision['planta_crm']) && !in_array($remision['planta_crm'], $plantasDisponibles, true)) {
@@ -75,6 +76,18 @@ $csrf = $_SESSION['csrf_remisiones'];
                                 <input type="hidden" name="id_remision" value="<?= (int) $remision['id_remision'] ?>">
 
                                 <div class="card-body">
+                                    <?php if ($sinCliente): ?>
+                                        <div class="alert alert-warning">
+                                            <b>Esta remision no tiene cliente ligado.</b> Captura el telefono del cliente (ya dado de alta) para ligarlo; los puntos se calculan al guardar.
+                                            <?php if (!empty($remision['cliente_crm']) || !empty($remision['vendedor_crm'])): ?>
+                                                <div class="small mt-1">
+                                                    Datos del QR:
+                                                    <?php if (!empty($remision['cliente_crm'])): ?>cliente <b><?= htmlspecialchars($remision['cliente_crm'], ENT_QUOTES, 'UTF-8') ?></b><?php endif; ?>
+                                                    <?php if (!empty($remision['vendedor_crm'])): ?> · vendedor <b><?= htmlspecialchars($remision['vendedor_crm'], ENT_QUOTES, 'UTF-8') ?></b><?php endif; ?>
+                                                </div>
+                                            <?php endif; ?>
+                                        </div>
+                                    <?php endif; ?>
                                     <div class="row g-3">
                                         <div class="col-md-4">
                                             <label class="form-label"><b>Folio</b></label>
@@ -82,7 +95,7 @@ $csrf = $_SESSION['csrf_remisiones'];
                                         </div>
                                         <div class="col-md-4">
                                             <label class="form-label"><b>Telefono</b></label>
-                                            <input type="tel" class="form-control" name="telefono" value="<?= htmlspecialchars($remision['telefono'], ENT_QUOTES, 'UTF-8') ?>" maxlength="10" pattern="[0-9]{10}" required>
+                                            <input type="tel" class="form-control" name="telefono" value="<?= htmlspecialchars($remision['telefono'], ENT_QUOTES, 'UTF-8') ?>" maxlength="10" pattern="[0-9]{10}" <?= $sinCliente ? '' : 'required' ?>>
                                         </div>
                                         <div class="col-md-4">
                                             <label class="form-label"><b>Volumen</b></label>

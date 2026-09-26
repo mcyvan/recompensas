@@ -196,6 +196,7 @@ function obtenerRemisiones(PDO $pdo, ?array $filtros = null, int $limite = 1000)
     $stmt = $pdo->prepare(
         "SELECT
             r.id_remision,
+            r.id_cliente,
             r.telefono,
             r.folio_remision,
             r.volumen,
@@ -213,7 +214,7 @@ function obtenerRemisiones(PDO $pdo, ?array $filtros = null, int $limite = 1000)
             vendedor.usuario AS vendedor,
             u.usuario AS operador
          FROM tb_remisiones r
-         INNER JOIN tb_clientes c ON c.id_cliente = r.id_cliente
+         LEFT JOIN tb_clientes c ON c.id_cliente = r.id_cliente
          LEFT JOIN tb_usuarios vendedor ON vendedor.id_usuario = c.id_usuario
          INNER JOIN tb_usuarios u ON u.id_usuario = r.id_operador
          $where
@@ -241,13 +242,16 @@ function obtenerRemision(PDO $pdo, int $idRemision): ?array
             r.puntos,
             r.estatus,
             r.planta_crm,
+            r.cliente_crm,
+            r.vendedor_crm,
+            r.sin_cliente_captura,
             c.nombres,
             c.apellido_p,
             c.apellido_m,
             vendedor.usuario AS vendedor,
             u.usuario AS operador
          FROM tb_remisiones r
-         INNER JOIN tb_clientes c ON c.id_cliente = r.id_cliente
+         LEFT JOIN tb_clientes c ON c.id_cliente = r.id_cliente
          LEFT JOIN tb_usuarios vendedor ON vendedor.id_usuario = c.id_usuario
          INNER JOIN tb_usuarios u ON u.id_usuario = r.id_operador
          WHERE r.id_remision = ?"
@@ -327,7 +331,7 @@ function obtenerVendedoresComercialesReporte(PDO $pdo): array
     $stmt = $pdo->query(
         "SELECT DISTINCT $expresion AS vendedor
          FROM tb_remisiones r
-         INNER JOIN tb_clientes c ON c.id_cliente = r.id_cliente
+         LEFT JOIN tb_clientes c ON c.id_cliente = r.id_cliente
          LEFT JOIN tb_usuarios vendedor ON vendedor.id_usuario = c.id_usuario
          $joinVentas
          WHERE r.estatus <> 'CANCELADO'
@@ -465,7 +469,7 @@ function obtenerResumenReporteRemisiones(PDO $pdo, array $filtros): array
             SUM(CASE WHEN r.estatus = 'EN PROCESO' THEN 1 ELSE 0 END) AS en_proceso,
             SUM(CASE WHEN r.estatus = 'CANCELADO' THEN 1 ELSE 0 END) AS canceladas
          FROM tb_remisiones r
-         INNER JOIN tb_clientes c ON c.id_cliente = r.id_cliente
+         LEFT JOIN tb_clientes c ON c.id_cliente = r.id_cliente
          LEFT JOIN tb_usuarios vendedor ON vendedor.id_usuario = c.id_usuario
          $joinVentas
          $where"
@@ -487,7 +491,7 @@ function obtenerReporteRemisionesPorCliente(PDO $pdo, array $filtros, int $limit
         "SELECT
             c.id_cliente,
             r.telefono,
-            CONCAT(c.nombres, ' ', c.apellido_p, ' ', c.apellido_m) AS cliente,
+            COALESCE(NULLIF(TRIM(CONCAT(c.nombres, ' ', c.apellido_p, ' ', c.apellido_m)), ''), 'SIN CLIENTE REGISTRADO') AS cliente,
             $vendedorComercial AS vendedor,
             COUNT(*) AS total_remisiones,
             COALESCE(SUM(CASE WHEN r.estatus <> 'CANCELADO' THEN r.volumen ELSE 0 END), 0) AS total_metros,
@@ -495,7 +499,7 @@ function obtenerReporteRemisionesPorCliente(PDO $pdo, array $filtros, int $limit
             MIN(r.hora_inicio) AS primera_remision,
             MAX(r.hora_inicio) AS ultima_remision
          FROM tb_remisiones r
-         INNER JOIN tb_clientes c ON c.id_cliente = r.id_cliente
+         LEFT JOIN tb_clientes c ON c.id_cliente = r.id_cliente
          LEFT JOIN tb_usuarios vendedor ON vendedor.id_usuario = c.id_usuario
          $joinVentas
          $where
@@ -524,7 +528,7 @@ function obtenerReporteRemisionesPorVendedor(PDO $pdo, array $filtros): array
             COALESCE(SUM(CASE WHEN r.estatus <> 'CANCELADO' THEN r.puntos ELSE 0 END), 0) AS total_puntos,
             MAX(r.hora_inicio) AS ultima_remision
          FROM tb_remisiones r
-         INNER JOIN tb_clientes c ON c.id_cliente = r.id_cliente
+         LEFT JOIN tb_clientes c ON c.id_cliente = r.id_cliente
          LEFT JOIN tb_usuarios vendedor ON vendedor.id_usuario = c.id_usuario
          $joinVentas
          $where
@@ -552,7 +556,7 @@ function obtenerReporteRemisionesPorChofer(PDO $pdo, array $filtros): array
             COALESCE(AVG(CASE WHEN r.estatus <> 'CANCELADO' AND r.minutos_colado IS NOT NULL THEN r.minutos_colado ELSE NULL END), 0) AS promedio_minutos,
             SUM(CASE WHEN r.estatus <> 'CANCELADO' AND r.minutos_colado > 45 THEN 1 ELSE 0 END) AS fuera_tiempo
          FROM tb_remisiones r
-         INNER JOIN tb_clientes c ON c.id_cliente = r.id_cliente
+         LEFT JOIN tb_clientes c ON c.id_cliente = r.id_cliente
          LEFT JOIN tb_usuarios vendedor ON vendedor.id_usuario = c.id_usuario
          $joinVentas
          INNER JOIN tb_usuarios u ON u.id_usuario = r.id_operador
@@ -578,7 +582,7 @@ function obtenerReporteRemisionesPorDia(PDO $pdo, array $filtros): array
             COALESCE(SUM(CASE WHEN r.estatus <> 'CANCELADO' THEN r.volumen ELSE 0 END), 0) AS total_metros,
             COALESCE(SUM(CASE WHEN r.estatus <> 'CANCELADO' THEN r.puntos ELSE 0 END), 0) AS total_puntos
          FROM tb_remisiones r
-         INNER JOIN tb_clientes c ON c.id_cliente = r.id_cliente
+         LEFT JOIN tb_clientes c ON c.id_cliente = r.id_cliente
          LEFT JOIN tb_usuarios vendedor ON vendedor.id_usuario = c.id_usuario
          $joinVentas
          $where
@@ -588,4 +592,108 @@ function obtenerReporteRemisionesPorDia(PDO $pdo, array $filtros): array
     $stmt->execute($parametros);
 
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+// Medicion de remisiones capturadas "sin cliente registrado".
+// - sin_cliente: cuantas se marcaron asi al capturarlas.
+// - pendientes: siguen sin cliente ligado.
+// - cliente_existia: ya se ligaron y el cliente ya estaba dado de alta antes del dia de la
+//   descarga (el operador debio encontrarlo: omision de captura).
+// - alta_posterior: ya se ligaron y el cliente se dio de alta el mismo dia o despues
+//   (el vendedor lo registro tarde).
+function seleccionMedicionSinCliente(): string
+{
+    return "COUNT(*) AS total_remisiones,
+            SUM(CASE WHEN r.sin_cliente_captura = 1 THEN 1 ELSE 0 END) AS sin_cliente,
+            SUM(CASE WHEN r.sin_cliente_captura = 1 AND r.id_cliente IS NULL THEN 1 ELSE 0 END) AS pendientes,
+            SUM(CASE WHEN r.sin_cliente_captura = 1 AND r.id_cliente IS NOT NULL AND c.fecha_registro < DATE(r.hora_inicio) THEN 1 ELSE 0 END) AS cliente_existia,
+            SUM(CASE WHEN r.sin_cliente_captura = 1 AND r.id_cliente IS NOT NULL AND c.fecha_registro >= DATE(r.hora_inicio) THEN 1 ELSE 0 END) AS alta_posterior";
+}
+
+function obtenerMedicionSinClientePorChofer(PDO $pdo, array $filtros): array
+{
+    $parametros = [];
+    $where = condicionesReporteRemisiones($filtros, $parametros);
+    $joinVentas = joinVendedorComercialReporte();
+    $seleccion = seleccionMedicionSinCliente();
+
+    $stmt = $pdo->prepare(
+        "SELECT u.usuario AS chofer, $seleccion
+         FROM tb_remisiones r
+         LEFT JOIN tb_clientes c ON c.id_cliente = r.id_cliente
+         LEFT JOIN tb_usuarios vendedor ON vendedor.id_usuario = c.id_usuario
+         $joinVentas
+         INNER JOIN tb_usuarios u ON u.id_usuario = r.id_operador
+         $where
+         GROUP BY u.id_usuario, u.usuario
+         ORDER BY sin_cliente DESC, total_remisiones DESC"
+    );
+    $stmt->execute($parametros);
+
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+// Agrupa por vendedor: el del cliente ligado; si no hay, el del archivo de ventas y por
+// ultimo el que trae el QR. Los nombres se unifican contra los usuarios VENDEDOR.
+function obtenerMedicionSinClientePorVendedor(PDO $pdo, array $filtros): array
+{
+    if (!function_exists('claveVendedorVenta')) {
+        require_once __DIR__ . '/conciliacion_ventas.php';
+    }
+
+    $parametros = [];
+    $where = condicionesReporteRemisiones($filtros, $parametros);
+    $joinVentas = joinVendedorComercialReporte();
+    $seleccion = seleccionMedicionSinCliente();
+
+    $stmt = $pdo->prepare(
+        "SELECT COALESCE(
+                    NULLIF(TRIM(CONCAT(vendedor_detalle.nombres, ' ', vendedor_detalle.apellido_p)), ''),
+                    NULLIF(venta_reporte.vendedor_archivo, ''),
+                    NULLIF(UPPER(TRIM(r.vendedor_crm)), ''),
+                    NULLIF(TRIM(vendedor.usuario), ''),
+                    'Sin vendedor'
+                ) AS vendedor, $seleccion
+         FROM tb_remisiones r
+         LEFT JOIN tb_clientes c ON c.id_cliente = r.id_cliente
+         LEFT JOIN tb_usuarios vendedor ON vendedor.id_usuario = c.id_usuario
+         $joinVentas
+         INNER JOIN tb_usuarios u ON u.id_usuario = r.id_operador
+         $where
+         GROUP BY vendedor"
+    );
+    $stmt->execute($parametros);
+
+    $nombresPorClave = [];
+    $vendedores = $pdo->query(
+        "SELECT u.usuario, TRIM(CONCAT(ud.nombres, ' ', ud.apellido_p)) AS nombre
+         FROM tb_usuarios u
+         INNER JOIN tb_usuarios_detalle ud ON ud.id_usuario = u.id_usuario
+         INNER JOIN tb_roles r ON r.id_rol = ud.id_rol
+         WHERE r.rol IN ('VENDEDOR', 'VENDEDORES')"
+    )->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($vendedores as $fila) {
+        $clave = preg_replace('/\s+/u', '', strtoupper((string) $fila['usuario']));
+        $nombresPorClave[$clave] = $fila['nombre'] !== '' ? $fila['nombre'] : $fila['usuario'];
+    }
+
+    $campos = ['total_remisiones', 'sin_cliente', 'pendientes', 'cliente_existia', 'alta_posterior'];
+    $resultado = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+        $etiqueta = (string) $fila['vendedor'];
+        $clave = preg_replace('/\s+/u', '', claveVendedorVenta($etiqueta));
+        $nombre = $nombresPorClave[$clave] ?? $etiqueta;
+
+        if (!isset($resultado[$nombre])) {
+            $resultado[$nombre] = ['vendedor' => $nombre] + array_fill_keys($campos, 0);
+        }
+        foreach ($campos as $campo) {
+            $resultado[$nombre][$campo] += (int) $fila[$campo];
+        }
+    }
+
+    $resultado = array_values($resultado);
+    usort($resultado, static fn($a, $b) => $b['sin_cliente'] <=> $a['sin_cliente'] ?: $b['total_remisiones'] <=> $a['total_remisiones']);
+
+    return $resultado;
 }

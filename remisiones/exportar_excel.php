@@ -116,7 +116,7 @@ $stmt = $pdo->prepare(
     "SELECT
         r.folio_remision,
         r.telefono,
-        CONCAT(c.nombres, ' ', c.apellido_p, ' ', c.apellido_m) AS cliente,
+        COALESCE(NULLIF(TRIM(CONCAT(c.nombres, ' ', c.apellido_p, ' ', c.apellido_m)), ''), 'SIN CLIENTE REGISTRADO') AS cliente,
         $vendedorComercial AS vendedor,
         r.volumen,
         r.hora_inicio,
@@ -127,7 +127,7 @@ $stmt = $pdo->prepare(
         $selectCamion,
         u.usuario AS operador
      FROM tb_remisiones r
-     INNER JOIN tb_clientes c ON c.id_cliente = r.id_cliente
+     LEFT JOIN tb_clientes c ON c.id_cliente = r.id_cliente
      LEFT JOIN tb_usuarios vendedor ON vendedor.id_usuario = c.id_usuario
      $joinVentas
      INNER JOIN tb_usuarios u ON u.id_usuario = r.id_operador

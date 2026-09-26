@@ -28,6 +28,16 @@ $reporteClientes = obtenerReporteRemisionesPorCliente($pdo, $filtrosReporte);
 $reporteVendedores = obtenerReporteRemisionesPorVendedor($pdo, $filtrosReporte);
 $reporteChoferes = obtenerReporteRemisionesPorChofer($pdo, $filtrosReporte);
 $reporteDias = obtenerReporteRemisionesPorDia($pdo, $filtrosReporte);
+try {
+    $sinClienteChoferes = obtenerMedicionSinClientePorChofer($pdo, $filtrosReporte);
+    $sinClienteVendedores = obtenerMedicionSinClientePorVendedor($pdo, $filtrosReporte);
+} catch (PDOException $e) {
+    error_log($e->getMessage());
+    $sinClienteChoferes = [];
+    $sinClienteVendedores = [];
+}
+$totalSinCliente = array_sum(array_column($sinClienteChoferes, 'sin_cliente'));
+$totalPendientesSinCliente = array_sum(array_column($sinClienteChoferes, 'pendientes'));
 $tabSolicitado = (string) ($_GET['tab'] ?? '');
 $tabActivo = in_array($tabSolicitado, ['reportes', 'conciliacion'], true) ? $tabSolicitado : 'remisiones';
 
@@ -221,7 +231,14 @@ if ($tabActivo === 'conciliacion') {
                                                 <td><?= htmlspecialchars($remision['folio_remision'], ENT_QUOTES, 'UTF-8') ?></td>
                                                 <td><?= htmlspecialchars($remision['telefono'], ENT_QUOTES, 'UTF-8') ?></td>
                                                 <td>
-                                                    <?= htmlspecialchars(trim($remision['nombres'] . ' ' . $remision['apellido_p'] . ' ' . $remision['apellido_m']), ENT_QUOTES, 'UTF-8') ?>
+                                                    <?php if (empty($remision['id_cliente'])): ?>
+                                                        <span class="badge text-bg-warning">Sin cliente</span>
+                                                        <?php if (!empty($remision['cliente_crm'])): ?>
+                                                            <div class="small text-muted">CRM: <?= htmlspecialchars($remision['cliente_crm'], ENT_QUOTES, 'UTF-8') ?></div>
+                                                        <?php endif; ?>
+                                                    <?php else: ?>
+                                                        <?= htmlspecialchars(trim($remision['nombres'] . ' ' . $remision['apellido_p'] . ' ' . $remision['apellido_m']), ENT_QUOTES, 'UTF-8') ?>
+                                                    <?php endif; ?>
                                                 </td>
                                                 <td><?= htmlspecialchars($remision['vendedor'] ?? 'Sin vendedor', ENT_QUOTES, 'UTF-8') ?></td>
                                                 <td><?= number_format((float) $remision['volumen'], 2) ?> m&sup3;</td>
@@ -556,6 +573,84 @@ if ($tabActivo === 'conciliacion') {
                                                 </table>
                                             </div>
                                         </div>
+
+                                        <div class="col-12">
+                                            <h6 class="fw-bold mb-1">Remisiones capturadas sin cliente registrado</h6>
+                                            <p class="text-muted small mb-2">
+                                                En el periodo: <b><?= number_format($totalSinCliente) ?></b> remisiones se capturaron sin cliente, de las cuales
+                                                <b><?= number_format($totalPendientesSinCliente) ?></b> siguen pendientes de ligar.
+                                                <b>Ya existia</b> = el cliente ya estaba dado de alta antes de la descarga (omision al capturar).
+                                                <b>Alta posterior</b> = el cliente se dio de alta el mismo dia o despues (vendedor).
+                                            </p>
+                                        </div>
+
+                                        <div class="col-xl-6">
+                                            <h6 class="fw-bold mb-2">Sin cliente por chofer</h6>
+                                            <div class="table-responsive">
+                                                <table id="tablaSinClienteChoferes" class="table table-sm table-striped table-bordered align-middle" style="width:100%">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Chofer</th>
+                                                            <th>Remisiones</th>
+                                                            <th>Sin cliente</th>
+                                                            <th>%</th>
+                                                            <th>Pendientes</th>
+                                                            <th>Ya existia</th>
+                                                            <th>Alta posterior</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <?php foreach ($sinClienteChoferes as $fila):
+                                                            $porcentajeSinCliente = (int) $fila['total_remisiones'] > 0 ? ((int) $fila['sin_cliente'] * 100 / (int) $fila['total_remisiones']) : 0;
+                                                        ?>
+                                                            <tr>
+                                                                <td><?= htmlspecialchars($fila['chofer'], ENT_QUOTES, 'UTF-8') ?></td>
+                                                                <td><?= number_format((int) $fila['total_remisiones']) ?></td>
+                                                                <td><?= number_format((int) $fila['sin_cliente']) ?></td>
+                                                                <td data-order="<?= $porcentajeSinCliente ?>"><?= number_format($porcentajeSinCliente, 1) ?>%</td>
+                                                                <td><?= number_format((int) $fila['pendientes']) ?></td>
+                                                                <td><?= number_format((int) $fila['cliente_existia']) ?></td>
+                                                                <td><?= number_format((int) $fila['alta_posterior']) ?></td>
+                                                            </tr>
+                                                        <?php endforeach; ?>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-xl-6">
+                                            <h6 class="fw-bold mb-2">Sin cliente por vendedor</h6>
+                                            <div class="table-responsive">
+                                                <table id="tablaSinClienteVendedores" class="table table-sm table-striped table-bordered align-middle" style="width:100%">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Vendedor</th>
+                                                            <th>Remisiones</th>
+                                                            <th>Sin cliente</th>
+                                                            <th>%</th>
+                                                            <th>Pendientes</th>
+                                                            <th>Ya existia</th>
+                                                            <th>Alta posterior</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <?php foreach ($sinClienteVendedores as $fila):
+                                                            $porcentajeSinCliente = $fila['total_remisiones'] > 0 ? ($fila['sin_cliente'] * 100 / $fila['total_remisiones']) : 0;
+                                                        ?>
+                                                            <tr>
+                                                                <td><?= htmlspecialchars($fila['vendedor'], ENT_QUOTES, 'UTF-8') ?></td>
+                                                                <td><?= number_format($fila['total_remisiones']) ?></td>
+                                                                <td><?= number_format($fila['sin_cliente']) ?></td>
+                                                                <td data-order="<?= $porcentajeSinCliente ?>"><?= number_format($porcentajeSinCliente, 1) ?>%</td>
+                                                                <td><?= number_format($fila['pendientes']) ?></td>
+                                                                <td><?= number_format($fila['cliente_existia']) ?></td>
+                                                                <td><?= number_format($fila['alta_posterior']) ?></td>
+                                                            </tr>
+                                                        <?php endforeach; ?>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="tab-pane fade <?= $tabActivo === 'conciliacion' ? 'show active' : '' ?>" id="panel-conciliacion" role="tabpanel" aria-labelledby="tab-conciliacion" <?= $tabActivo !== 'conciliacion' ? 'hidden' : '' ?>>
@@ -623,6 +718,12 @@ if ($tabActivo === 'conciliacion') {
                 language: {
                     url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json'
                 }
+            });
+
+            $('#tablaSinClienteChoferes, #tablaSinClienteVendedores').DataTable({
+                pageLength: 10,
+                order: [[2, 'desc']],
+                language: { url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/es-MX.json' }
             });
 
             $('#tablaReporteDias').DataTable({

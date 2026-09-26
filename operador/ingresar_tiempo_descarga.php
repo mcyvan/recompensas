@@ -41,39 +41,14 @@ verificarSesion();
 
                                         <div class="card-body">
 
-                                            <!-- TELEFONO -->
-                                            <div class="m-2">
-                                                <label><b>1.</b> Teléfono:</label>
-                                                <div class="input-group">
-                                                    <span class="input-group-text">
-                                                        <i class="bi bi-telephone"></i>
-                                                    </span>
-                                                    <input type="text"
-                                                        class="form-control telefono-input"
-                                                        id="telefono"
-                                                        name="telefono"
-                                                        inputmode="numeric"
-                                                        maxlength="10"
-                                                        placeholder="Escribe los 10 digitos"
-                                                        autocomplete="off"
-                                                        required>
-                                                    <button type="button" class="btn btn-outline-secondary" id="btnEscanearClienteQr">
-                                                        Escanear
-                                                    </button>
-                                                </div>
-
-                                                <input type="hidden" id="id_cliente_qr" name="id_cliente_qr">
-                                                <small id="clienteInfo"></small>
-                                            </div>
-
                                             <!-- REMISION -->
                                             <div class="m-2">
-                                                <label><b>2.</b> Remisión:</label>
+                                                <label><b>1.</b> Remisión:</label>
                                                 <div class="input-group">
                                                     <input type="text" class="form-control" id="remision" name="remision"
                                                         maxlength="8" pattern="RE[0-9]{6}" inputmode="text"
-                                                        placeholder="RE123456" autocomplete="off" disabled>
-                                                    <button type="button" class="btn btn-outline-secondary" id="btnEscanearQr" disabled>
+                                                        placeholder="RE123456" autocomplete="off">
+                                                    <button type="button" class="btn btn-outline-secondary" id="btnEscanearQr">
                                                         Escanear QR
                                                     </button>
                                                 </div>
@@ -82,7 +57,7 @@ verificarSesion();
 
                                             <!-- METROS -->
                                             <div class="m-2">
-                                                <label><b>3.</b> Metros:</label>
+                                                <label><b>2.</b> Metros:</label>
                                                 <div class="input-group">
                                                     <input type="number"
                                                         class="form-control"
@@ -97,6 +72,37 @@ verificarSesion();
                                                 </div>
 
                                                 <small id="metrosInfo"></small>
+                                            </div>
+
+                                            <!-- CLIENTE -->
+                                            <div class="m-2">
+                                                <label><b>3.</b> Teléfono del cliente:</label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text">
+                                                        <i class="bi bi-telephone"></i>
+                                                    </span>
+                                                    <input type="text"
+                                                        class="form-control telefono-input"
+                                                        id="telefono"
+                                                        name="telefono"
+                                                        inputmode="numeric"
+                                                        maxlength="10"
+                                                        placeholder="Escribe los 10 digitos"
+                                                        autocomplete="off">
+                                                    <button type="button" class="btn btn-outline-secondary" id="btnEscanearClienteQr">
+                                                        Escanear
+                                                    </button>
+                                                </div>
+
+                                                <input type="hidden" id="id_cliente_qr" name="id_cliente_qr">
+                                                <small id="clienteInfo"></small>
+
+                                                <div class="form-check mt-2" id="contenedorSinCliente">
+                                                    <input class="form-check-input" type="checkbox" value="1" id="sin_cliente" name="sin_cliente">
+                                                    <label class="form-check-label" for="sin_cliente">
+                                                        El cliente no está dado de alta en el sistema
+                                                    </label>
+                                                </div>
                                             </div>
 
                                             <input type="hidden" id="qr_origen" name="qr_origen">
@@ -233,10 +239,21 @@ verificarSesion();
         let qrEscaneando = false;
         let qrModo = "remision";
 
-        // bloquear
-        remisionInput.disabled = true;
+        const sinClienteCheck = document.getElementById("sin_cliente");
+        const contenedorSinCliente = document.getElementById("contenedorSinCliente");
+
+        // Los metros se habilitan cuando la remision es valida.
         metrosInput.disabled = true;
-        btnEscanearQr.disabled = true;
+
+        // Con cliente encontrado la casilla "sin registro" ya no aplica.
+        function actualizarEstadoCliente() {
+            if (telefonoValido) {
+                sinClienteCheck.checked = false;
+                contenedorSinCliente.classList.add("d-none");
+            } else {
+                contenedorSinCliente.classList.remove("d-none");
+            }
+        }
 
         function extraerFolioRemision(texto) {
             const limpio = String(texto || "").trim().toUpperCase();
@@ -450,8 +467,7 @@ verificarSesion();
                 clienteInfo.innerHTML = "Debe tener 10 dígitos";
                 clienteInfo.className = "text-danger";
                 telefonoValido = false;
-                remisionInput.disabled = true;
-                bloquearMetros();
+                actualizarEstadoCliente();
                 return Promise.resolve(false);
             }
 
@@ -471,26 +487,21 @@ verificarSesion();
                         idClienteQrInput.value = data.id_cliente || idCliente;
                         clienteInfo.innerHTML = "Cliente: " + data.nombre + " " + data.apellido_p + " " + data.apellido_m;
                         clienteInfo.className = "text-success";
-                        remisionInput.disabled = false;
-                        btnEscanearQr.disabled = false;
+                        actualizarEstadoCliente();
                         return true;
                     }
 
                     telefonoValido = false;
-                    clienteInfo.innerHTML = "Cliente no encontrado";
+                    clienteInfo.innerHTML = "Cliente no encontrado. Si no está dado de alta, marca la casilla de abajo.";
                     clienteInfo.className = "text-danger";
-                    remisionInput.disabled = true;
-                    btnEscanearQr.disabled = true;
-                    bloquearMetros();
+                    actualizarEstadoCliente();
                     return false;
                 })
                 .catch(() => {
                     telefonoValido = false;
                     clienteInfo.innerHTML = "Error al validar";
                     clienteInfo.className = "text-danger";
-                    remisionInput.disabled = true;
-                    btnEscanearQr.disabled = true;
-                    bloquearMetros();
+                    actualizarEstadoCliente();
                     return false;
                 });
         }
@@ -548,7 +559,6 @@ verificarSesion();
             }
 
             if (datos.remision) {
-                remisionInput.disabled = false;
                 await validarRemisionCapturada(datos.remision, {
                     enfocarMetros: true
                 });
@@ -564,7 +574,7 @@ verificarSesion();
             }
 
             if (!datos.telefono && !telefonoValido) {
-                clienteInfo.innerHTML = "El QR no trae telefono. Capturelo manualmente.";
+                clienteInfo.innerHTML = "El QR no trae telefono. Capturalo o marca la casilla si el cliente no está dado de alta.";
                 clienteInfo.className = "text-warning";
             }
 
@@ -582,56 +592,19 @@ verificarSesion();
             clearTimeout(timeoutTelefono);
 
             if (telefono.length < 10) {
-                clienteInfo.innerHTML = "Debe tener 10 dígitos";
-                clienteInfo.className = "text-danger";
-
                 telefonoValido = false;
-                remisionInput.disabled = true;
-                btnEscanearQr.disabled = true;
-                bloquearMetros();
+                actualizarEstadoCliente();
+                if (telefono.length === 0) {
+                    clienteInfo.innerHTML = "";
+                } else {
+                    clienteInfo.innerHTML = "Debe tener 10 dígitos";
+                    clienteInfo.className = "text-danger";
+                }
                 return;
             }
 
             timeoutTelefono = setTimeout(() => {
-
-                let formData = new FormData();
-                formData.append("telefono", telefono);
-
-                fetch("../ajax/ajax_validar_telefono.php", {
-                        method: "POST",
-                        body: formData
-                    })
-                    .then(res => res.json())
-                    .then(data => {
-
-                        if (data.existe) {
-                        telefonoValido = true;
-                        telefonoInput.value = data.telefono || telefono;
-                        idClienteQrInput.value = data.id_cliente || "";
-
-                            clienteInfo.innerHTML = "Cliente: " + data.nombre + " " + data.apellido_p + " " + data.apellido_m;
-                            clienteInfo.className = "text-success";
-
-                            remisionInput.disabled = false;
-                            btnEscanearQr.disabled = false;
-                        } else {
-                            telefonoValido = false;
-
-                            clienteInfo.innerHTML = "Cliente no encontrado";
-                            clienteInfo.className = "text-danger";
-
-                            remisionInput.disabled = true;
-                            btnEscanearQr.disabled = true;
-                            bloquearMetros();
-                        }
-
-                    })
-                    .catch(() => {
-                        clienteInfo.innerHTML = "Error al validar";
-                        clienteInfo.className = "text-danger";
-                        btnEscanearQr.disabled = true;
-                    });
-
+                validarTelefonoCapturado(telefono);
             }, 400);
         });
 
@@ -696,11 +669,22 @@ verificarSesion();
                     formats: ["qr_code"]
                 });
 
+                // Sin pedir resolucion el navegador suele dar 640x480, insuficiente para un QR
+                // denso impreso con tinta. Se pide 1080p y enfoque continuo (si el equipo lo soporta).
                 qrStream = await navigator.mediaDevices.getUserMedia({
                     video: {
                         facingMode: {
                             ideal: "environment"
-                        }
+                        },
+                        width: {
+                            ideal: 1920
+                        },
+                        height: {
+                            ideal: 1080
+                        },
+                        advanced: [{
+                            focusMode: "continuous"
+                        }]
                     },
                     audio: false
                 });
@@ -784,9 +768,15 @@ verificarSesion();
         /* ================= SUBMIT ================= */
         document.getElementById("formRemision").addEventListener("submit", function(e) {
 
-            if (!telefonoValido || !remisionValida || !metrosValidos) {
+            if (!remisionValida || !metrosValidos) {
                 e.preventDefault();
-                alert("Completa correctamente los datos");
+                alert("Captura la remisión y los metros correctamente");
+                return;
+            }
+
+            if (!telefonoValido && !sinClienteCheck.checked) {
+                e.preventDefault();
+                alert("Captura el teléfono del cliente o marca que no está dado de alta en el sistema");
             }
         });
     </script>

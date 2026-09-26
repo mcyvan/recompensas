@@ -13,13 +13,31 @@ try {
 
     $telefono = preg_replace('/\D/', '', (string) ($_POST['telefono'] ?? ''));
     $idClienteQr = filter_var($_POST['id_cliente_qr'] ?? null, FILTER_VALIDATE_INT) ?: 0;
+    $sinClienteMarcado = ($_POST['sin_cliente'] ?? '') === '1';
+    $id_cliente = null;
+    $sin_cliente_captura = 0;
 
-    if ($idClienteQr > 0) {
-        $clienteQr = obtenerClienteActivoPorId($idClienteQr);
-        $id_cliente = (int) $clienteQr['id_cliente'];
-        $telefono = $telefono !== '' ? $telefono : (string) $clienteQr['telefono'];
-    } else {
-        $id_cliente = obtenerIdClienteTelefono($telefono);
+    // Si el operador marco "cliente sin registro" no se le exige cliente, pero si el
+    // telefono corresponde a un cliente dado de alta se liga automaticamente.
+    try {
+        if ($idClienteQr > 0) {
+            $clienteQr = obtenerClienteActivoPorId($idClienteQr);
+            $id_cliente = (int) $clienteQr['id_cliente'];
+            $telefono = $telefono !== '' ? $telefono : (string) $clienteQr['telefono'];
+        } else {
+            $id_cliente = (int) obtenerIdClienteTelefono($telefono);
+        }
+    } catch (Exception $errorCliente) {
+        if (!$sinClienteMarcado) {
+            throw $errorCliente;
+        }
+        $id_cliente = null;
+    }
+
+    if (!$id_cliente && $sinClienteMarcado) {
+        $sin_cliente_captura = 1;
+        // Solo se guarda el telefono si esta completo; sirve para ligar el cliente despues.
+        $telefono = strlen($telefono) === 10 ? $telefono : '';
     }
 
     $folio_remision = normalizarFolioRemisionOperador($_POST['remision'] ?? '');
@@ -50,7 +68,7 @@ try {
     // echo $telefono . " - " . $folio_remision . " - " . $volumen . " - " . $id_usuario . " - " . $hora_inicio . " - " . $estatus;
     // exit();
 
-    if (!$id_cliente) {
+    if (!$id_cliente && !$sin_cliente_captura) {
         throw new Exception("Teléfono no válido");
     }
 
@@ -105,6 +123,11 @@ try {
     if (isset($columnasDisponibles['rol_captura'])) {
         $campos[] = 'rol_captura';
         $valores[] = $rol_captura;
+    }
+
+    if (isset($columnasDisponibles['sin_cliente_captura'])) {
+        $campos[] = 'sin_cliente_captura';
+        $valores[] = $sin_cliente_captura;
     }
 
 
