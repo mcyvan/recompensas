@@ -3,6 +3,7 @@ require_once("../app/config/config.php");
 require_once("../app/functions/auth.php");
 require_once("../app/functions/remisiones.php");
 require_once("../app/functions/conciliacion_ventas.php");
+require_once("../app/functions/produccion_planta.php");
 
 verificarSesion();
 verificarPermisoRemisiones();
@@ -39,7 +40,7 @@ try {
 $totalSinCliente = array_sum(array_column($sinClienteChoferes, 'sin_cliente'));
 $totalPendientesSinCliente = array_sum(array_column($sinClienteChoferes, 'pendientes'));
 $tabSolicitado = (string) ($_GET['tab'] ?? '');
-$tabActivo = in_array($tabSolicitado, ['reportes', 'conciliacion'], true) ? $tabSolicitado : 'remisiones';
+$tabActivo = in_array($tabSolicitado, ['reportes', 'conciliacion', 'produccion'], true) ? $tabSolicitado : 'remisiones';
 
 if ($tabActivo === 'conciliacion') {
     $filtrosConciliacion = filtrosConciliacionVentas($pdo, [
@@ -63,6 +64,29 @@ if ($tabActivo === 'conciliacion') {
             static fn($fila) => (int) $fila['en_recompensas'] === $valorEsperado
         ));
     }
+}
+
+if ($tabActivo === 'produccion') {
+    $filtrosProduccion = filtrosProduccionPlanta([
+        'fecha_inicio' => $_GET['prod_fecha_inicio'] ?? '',
+        'fecha_fin' => $_GET['prod_fecha_fin'] ?? '',
+        'planta' => $_GET['prod_planta'] ?? '',
+    ]);
+
+    try {
+        $porOperadorProduccion = obtenerProduccionPorOperador($pdo, $filtrosProduccion);
+        $estadoSyncProduccion = obtenerEstadoSincronizacionProduccion($pdo);
+        $errorProduccion = false;
+    } catch (PDOException $e) {
+        error_log($e->getMessage());
+        $porOperadorProduccion = [];
+        $estadoSyncProduccion = [];
+        $errorProduccion = true;
+    }
+    $operadorProduccionSeleccionado = trim((string) ($_GET['prod_operador'] ?? ''));
+    $faltantesOperadorProduccion = $operadorProduccionSeleccionado !== '' && !$errorProduccion
+        ? obtenerFoliosFaltantesOperador($pdo, $operadorProduccionSeleccionado, $filtrosProduccion)
+        : [];
 }
 ?>
 <!doctype html>
@@ -173,6 +197,11 @@ if ($tabActivo === 'conciliacion') {
                                         Graficas y resultados
                                     </a>
                                 </li>
+                                <li class="nav-item" role="presentation">
+                                    <a class="nav-link <?= $tabActivo === 'produccion' ? 'active' : '' ?>" id="tab-produccion" href="index.php?tab=produccion" role="tab">
+                                        Produccion
+                                    </a>
+                                </li>
                             </ul>
                         </div>
                         <div class="card-body">
@@ -208,6 +237,7 @@ if ($tabActivo === 'conciliacion') {
                                             <th>Telefono</th>
                                             <th>Cliente</th>
                                             <th>Vendedor</th>
+                                            <th>Planta</th>
                                             <th>Volumen</th>
                                             <th>CRM</th>
                                             <th>Fecha inicio</th>
@@ -241,6 +271,13 @@ if ($tabActivo === 'conciliacion') {
                                                     <?php endif; ?>
                                                 </td>
                                                 <td><?= htmlspecialchars($remision['vendedor'] ?? 'Sin vendedor', ENT_QUOTES, 'UTF-8') ?></td>
+                                                <td>
+                                                    <?php if (!empty($remision['planta_crm'])): ?>
+                                                        <?= htmlspecialchars($remision['planta_crm'], ENT_QUOTES, 'UTF-8') ?>
+                                                    <?php else: ?>
+                                                        <span class="text-muted">Sin planta</span>
+                                                    <?php endif; ?>
+                                                </td>
                                                 <td><?= number_format((float) $remision['volumen'], 2) ?> m&sup3;</td>
                                                 <td>
                                                     <?php if (!empty($remision['qr_origen'])): ?>
@@ -656,6 +693,9 @@ if ($tabActivo === 'conciliacion') {
                                 <div class="tab-pane fade <?= $tabActivo === 'conciliacion' ? 'show active' : '' ?>" id="panel-conciliacion" role="tabpanel" aria-labelledby="tab-conciliacion" <?= $tabActivo !== 'conciliacion' ? 'hidden' : '' ?>>
                                     <?php if ($tabActivo === 'conciliacion') { include __DIR__ . '/../conciliacion/resultados_panel.php'; } ?>
                                 </div>
+                                <div class="tab-pane fade <?= $tabActivo === 'produccion' ? 'show active' : '' ?>" id="panel-produccion" role="tabpanel" aria-labelledby="tab-produccion" <?= $tabActivo !== 'produccion' ? 'hidden' : '' ?>>
+                                    <?php if ($tabActivo === 'produccion') { include __DIR__ . '/../conciliacion/produccion_panel.php'; } ?>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -686,7 +726,7 @@ if ($tabActivo === 'conciliacion') {
     <script>
         $(document).ready(function() {
             $('#tablaRemisiones').DataTable({
-                order: [[7, 'desc']],
+                order: [[8, 'desc']],
                 language: {
                     url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json'
                 }

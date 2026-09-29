@@ -18,6 +18,7 @@ try {
     $porVendedor = obtenerConciliacionPorVendedor($pdo, $filtros);
     $detalle = obtenerDetalleConciliacion($pdo, $filtros);
     $cargas = obtenerUltimasCargasVentas($pdo);
+    $estadoSyncVentas = obtenerEstadoSincronizacionVentas($pdo);
 } catch (PDOException $e) {
     error_log($e->getMessage());
     http_response_code(500);
@@ -86,22 +87,51 @@ $tabActivo = 'carga';
 
                 <?php if ($tabActivo === 'carga'): ?>
                 <div class="card card-primary card-outline mb-4">
-                    <div class="card-header"><div class="card-title"><b>Cargar ventas</b></div></div>
-                    <form action="../controller/controller_importar_ventas.php" method="post" enctype="multipart/form-data">
-                        <div class="card-body">
-                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_conciliacion_ventas'], ENT_QUOTES, 'UTF-8') ?>">
-                            <div class="upload-drop">
-                                <label class="form-label" for="archivosVentas"><b>Archivos Excel (.xlsx)</b></label>
-                                <input class="form-control" type="file" id="archivosVentas" name="archivos_ventas[]" accept=".xlsx" multiple required>
-                                <div class="form-text mt-2">
-                                    Puedes cargar un dia, varios archivos diarios o un reporte semanal. Los dias incluidos se sustituyen completos antes de insertar la nueva informacion.
+                    <div class="card-header"><div class="card-title"><b>Sincronizacion de ventas</b></div></div>
+                    <div class="card-body">
+                        <?php if (!$estadoSyncVentas): ?>
+                            <div class="alert alert-warning mb-0">
+                                Todavia no corre el cron de sincronizacion (<code>cron/sincronizar_ventas.php</code>). Las ventas de "MICROSIP REMISIONES" no se han traido todavia.
+                            </div>
+                        <?php elseif ($estadoSyncVentas['ultimo_error']): ?>
+                            <div class="alert alert-danger mb-0">
+                                Error en la ultima sincronizacion (<?= date('d/m/Y H:i', strtotime($estadoSyncVentas['fecha_sincronizacion'])) ?>):
+                                <?= htmlspecialchars($estadoSyncVentas['ultimo_error'], ENT_QUOTES, 'UTF-8') ?>
+                            </div>
+                        <?php else: ?>
+                            <div class="alert alert-success mb-0">
+                                Se sincroniza sola desde la pestaña "MICROSIP REMISIONES" del Google Sheet.
+                                Ultima corrida: <?= date('d/m/Y H:i', strtotime($estadoSyncVentas['fecha_sincronizacion'])) ?>
+                                (<?= (int) $estadoSyncVentas['filas_procesadas_ultima_vez'] ?> filas, <?= (int) $estadoSyncVentas['dias_reemplazados_ultima_vez'] ?> dia(s) revisados).
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <a class="d-block text-decoration-none" data-bs-toggle="collapse" href="#cargaManualVentas">
+                            <i class="bi bi-chevron-down"></i> Carga manual (solo si la sincronizacion automatica falla)
+                        </a>
+                    </div>
+                    <div class="collapse" id="cargaManualVentas">
+                        <form action="../controller/controller_importar_ventas.php" method="post" enctype="multipart/form-data">
+                            <div class="card-body">
+                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_conciliacion_ventas'], ENT_QUOTES, 'UTF-8') ?>">
+                                <div class="upload-drop">
+                                    <label class="form-label" for="archivosVentas"><b>Archivos Excel (.xlsx)</b></label>
+                                    <input class="form-control" type="file" id="archivosVentas" name="archivos_ventas[]" accept=".xlsx" multiple required>
+                                    <div class="form-text mt-2">
+                                        Uso excepcional: si la sincronizacion automatica esta caida. Los dias incluidos se sustituyen completos antes de insertar la nueva informacion,
+                                        y la proxima sincronizacion automatica los vuelve a reemplazar con lo que haya en el Sheet.
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        <div class="card-footer">
-                            <button class="btn btn-primary" type="submit"><i class="bi bi-cloud-arrow-up"></i> Cargar y conciliar</button>
-                        </div>
-                    </form>
+                            <div class="card-footer">
+                                <button class="btn btn-outline-primary" type="submit"><i class="bi bi-cloud-arrow-up"></i> Cargar y conciliar</button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
                 <?php endif; ?>
 

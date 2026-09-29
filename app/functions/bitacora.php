@@ -22,7 +22,7 @@ function registrarBitacoraCambios(PDO $pdo, string $entidad, int $idRegistro, st
         $stmt = $pdo->prepare(
             "INSERT INTO tb_bitacora_cambios
                 (entidad, id_registro, accion, id_usuario_autor, usuario_autor, rol_autor, cambios, ip, fecha_cambio)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())"
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
         );
         $stmt->execute([
             $entidad,
@@ -33,6 +33,9 @@ function registrarBitacoraCambios(PDO $pdo, string $entidad, int $idRegistro, st
             $_SESSION['rol'] ?? null,
             json_encode($cambios, JSON_UNESCAPED_UNICODE),
             $_SERVER['REMOTE_ADDR'] ?? null,
+            // Hora de PHP (zona de la app), no NOW() de MySQL: NOW() usa el
+            // reloj/zona del servidor de base de datos y puede desfasar la hora.
+            date('Y-m-d H:i:s'),
         ]);
     } catch (PDOException $e) {
         error_log('Bitacora de cambios: ' . $e->getMessage());

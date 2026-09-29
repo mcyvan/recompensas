@@ -514,3 +514,236 @@ function obtenerUltimasCargasVentas(PDO $pdo, int $limite = 10): array
          LIMIT $limite"
     )->fetchAll(PDO::FETCH_ASSOC);
 }
+
+// ===== Sincronizacion en vivo desde la pestaña "MICROSIP REMISIONES" =====
+// Reemplaza la carga manual de XLSX: lee esa pestaña del mismo Google Sheet y
+// aplica la misma regla ya establecida para tb_ventas_empresa (reemplazo
+// total por fecha, ver controller_importar_ventas.php), solo que sola.
+
+const FUENTE_VENTAS_MICROSIP_SHEET = 'MICROSIP_REMISIONES';
+
+function fechaSheetVenta(string $texto): ?string
+{
+    $fecha = DateTime::createFromFormat('d/m/Y', $texto) ?: DateTime::createFromFormat('j/n/Y', $texto);
+
+    return $fecha ? $fecha->format('Y-m-d') : null;
+}
+
+function mapaColumnasVentasSheet(array $encabezados): array
+{
+    $esperados = [
+        'FECHA' => 'fecha',
+        'REMISION' => 'remision',
+        'PEDIDO' => 'pedido',
+        'FACTURA' => 'factura',
+        'PLANTA' => 'planta',
+        'VENDEDOR' => 'vendedor',
+        'CLIENTE' => 'cliente',
+        'ARTICULOS' => 'articulo',
+        'ARTICULO' => 'articulo',
+        'CANTIDAD' => 'cantidad',
+        'UNIDADES' => 'cantidad',
+        'PRECIO' => 'precio_unitario',
+        'PRECIO UNITARIO' => 'precio_unitario',
+    ];
+
+    $mapa = [];
+    foreach ($encabezados as $indice => $valor) {
+        $encabezado = textoNormalizadoVenta((string) $valor);
+        $encabezado = strtr($encabezado, ['Ó' => 'O', 'Í' => 'I', 'Á' => 'A', 'É' => 'E', 'Ú' => 'U']);
+        if (isset($esperados[$encabezado]) && !isset($mapa[$esperados[$encabezado]])) {
+            $mapa[$esperados[$encabezado]] = $indice;
+        }
+    }
+
+    foreach (['fecha', 'remision', 'articulo', 'cantidad'] as $requerido) {
+        if (!isset($mapa[$requerido])) {
+            throw new RuntimeException("No se encontro la columna '$requerido' en el encabezado de la hoja de ventas.");
+        }
+    }
+
+    return $mapa;
+}
+
+function parsearFilaVentaSheet(array $fila, array $mapa): ?array
+{
+    $obtener = static fn(string $campo) => isset($mapa[$campo]) ? trim((string) ($fila[$mapa[$campo]] ?? '')) : '';
+
+    $fecha = fechaSheetVenta($obtener('fecha'));
+    $remision = textoNormalizadoVenta($obtener('remision'));
+    $articulo = trim($obtener('articulo'));
+
+    if (!$fecha || $remision === '' || $articulo === '') {
+        return null;
+    }
+
+    return [
+        'fecha' => $fecha,
+        'remision' => $remision,
+        'pedido' => $obtener('pedido'),
+        'factura' => $obtener('factura'),
+        'planta' => $obtener('planta'),
+        'vendedor' => $obtener('vendedor'),
+        'cliente' => $obtener('cliente'),
+        'articulo' => $articulo,
+        'cantidad' => numeroVenta($obtener('cantidad')),
+        'precio_unitario' => numeroVenta($obtener('precio_unitario')),
+        'es_concreto' => articuloEsConcreto($articulo) ? 1 : 0,
+    ];
+}
+
+// Re-procesa un colchon de filas anteriores a la ultima sincronizada (por si el
+// dosificador corrigio un dato de los ultimos dias), no solo las filas nuevas.
+const VENTAS_SHEET_COLCHON_FILAS = 400;
+
+function sincronizarVentasDesdeGoogleSheets(PDO $pdo, array $config, string $nombreHoja = 'MICROSIP REMISIONES'): array
+{
+    $encabezados = obtenerFilasHojaGoogle($config, "'$nombreHoja'!A1:P6");
+    $indiceEncabezado = null;
+    foreach ($encabezados as $indice => $fila) {
+        if (in_array('REMISION', array_map('trim', array_map('strval', $fila)), true)) {
+            $indiceEncabezado = $indice;
+            break;
+        }
+    }
+    if ($indiceEncabezado === null) {
+        throw new RuntimeException("No se encontro la fila de encabezado en la hoja '$nombreHoja'.");
+    }
+    $mapaColumnas = mapaColumnasVentasSheet($encabezados[$indiceEncabezado]);
+    $filaEncabezadoSheet = $indiceEncabezado + 1;
+
+    $stmtUltimaFila = $pdo->prepare('SELECT ultima_fila_sincronizada FROM tb_ventas_sync WHERE fuente = ?');
+    $stmtUltimaFila->execute([FUENTE_VENTAS_MICROSIP_SHEET]);
+    $ultimaFila = (int) ($stmtUltimaFila->fetchColumn() ?: 0);
+    $filaInicio = max($ultimaFila - VENTAS_SHEET_COLCHON_FILAS + 1, $filaEncabezadoSheet + 1);
+
+    $filasSheet = obtenerFilasHojaGoogle($config, "'$nombreHoja'!A{$filaInicio}:P");
+
+    $ventas = [];
+    $huellas = [];
+    foreach ($filasSheet as $desplazamiento => $filaCruda) {
+        $venta = parsearFilaVentaSheet($filaCruda, $mapaColumnas);
+        if (!$venta) {
+            continue;
+        }
+        $huella = hash('sha256', implode('|', [
+            $venta['fecha'], $venta['remision'], $venta['pedido'], $venta['factura'],
+            $venta['planta'], $venta['vendedor'], $venta['cliente'], $venta['articulo'],
+            (string) $venta['cantidad'], (string) $venta['precio_unitario'],
+        ]));
+        if (isset($huellas[$huella])) {
+            continue;
+        }
+        $huellas[$huella] = true;
+        $venta['fila_origen'] = $filaInicio + $desplazamiento;
+        $ventas[] = $venta;
+    }
+
+    $fechas = array_values(array_unique(array_column($ventas, 'fecha')));
+    $totalFilasLeidas = count($filasSheet);
+    // El colchon puede empezar a la mitad de un dia (ese dia ya tiene filas
+    // guardadas de una corrida anterior, fuera de esta ventana). Por eso el
+    // reemplazo es por posicion exacta de fila (fila_origen), no por fecha:
+    // borrar por fecha borraria tambien esas filas de fuera de la ventana sin
+    // volver a insertarlas, perdiendo informacion real.
+    $filaFin = $filaInicio + max(0, $totalFilasLeidas - 1);
+    // Hora de PHP (zona de la app), no NOW() de MySQL: NOW() usa el reloj/zona
+    // del servidor de base de datos, que puede no coincidir y desfasar el reporte.
+    $ahora = date('Y-m-d H:i:s');
+
+    $pdo->beginTransaction();
+    try {
+        $pdo->prepare(
+            'DELETE FROM tb_ventas_empresa WHERE fuente = ? AND fila_origen BETWEEN ? AND ?'
+        )->execute(['SHEET', $filaInicio, $filaFin]);
+
+        if ($ventas) {
+            sort($fechas);
+            $insertarCarga = $pdo->prepare(
+                'INSERT INTO tb_cargas_ventas
+                    (archivos, fecha_inicio, fecha_fin, dias_reemplazados, filas_importadas, id_usuario, fecha_carga)
+                 VALUES (?, ?, ?, ?, ?, NULL, ?)'
+            );
+            $insertarCarga->execute([
+                "Sincronizacion automatica ($nombreHoja)",
+                $fechas[0],
+                $fechas[count($fechas) - 1],
+                count($fechas),
+                count($ventas),
+                $ahora,
+            ]);
+            $idCarga = (int) $pdo->lastInsertId();
+
+            $insertar = $pdo->prepare(
+                'INSERT INTO tb_ventas_empresa
+                    (id_carga, fuente, fila_origen, fecha, remision, pedido, factura, planta, vendedor, cliente,
+                     articulo, cantidad, precio_unitario, es_concreto, fecha_importacion)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+            );
+            foreach ($ventas as $venta) {
+                $insertar->execute([
+                    $idCarga,
+                    'SHEET',
+                    $venta['fila_origen'],
+                    $venta['fecha'],
+                    $venta['remision'],
+                    $venta['pedido'] ?: null,
+                    $venta['factura'] ?: null,
+                    $venta['planta'] ?: null,
+                    $venta['vendedor'] ?: null,
+                    $venta['cliente'] ?: null,
+                    $venta['articulo'],
+                    $venta['cantidad'],
+                    $venta['precio_unitario'],
+                    $venta['es_concreto'],
+                    $ahora,
+                ]);
+            }
+        }
+
+        $nuevaUltimaFila = $totalFilasLeidas > 0 ? $filaFin : $ultimaFila;
+
+        $stmtSync = $pdo->prepare(
+            'INSERT INTO tb_ventas_sync (fuente, ultima_fila_sincronizada, fecha_sincronizacion, filas_procesadas_ultima_vez, dias_reemplazados_ultima_vez, ultimo_error)
+             VALUES (?, ?, ?, ?, ?, NULL)
+             ON DUPLICATE KEY UPDATE
+                ultima_fila_sincronizada = VALUES(ultima_fila_sincronizada),
+                fecha_sincronizacion = VALUES(fecha_sincronizacion),
+                filas_procesadas_ultima_vez = VALUES(filas_procesadas_ultima_vez),
+                dias_reemplazados_ultima_vez = VALUES(dias_reemplazados_ultima_vez),
+                ultimo_error = NULL'
+        );
+        $stmtSync->execute([FUENTE_VENTAS_MICROSIP_SHEET, $nuevaUltimaFila, $ahora, count($ventas), count($fechas)]);
+
+        $pdo->commit();
+    } catch (Throwable $e) {
+        $pdo->rollBack();
+        throw $e;
+    }
+
+    return [
+        'filas_leidas' => count($filasSheet),
+        'filas_validas' => count($ventas),
+        'dias_reemplazados' => count($fechas),
+        'ultima_fila' => $nuevaUltimaFila,
+    ];
+}
+
+function registrarErrorSincronizacionVentas(PDO $pdo, string $mensaje): void
+{
+    $ahora = date('Y-m-d H:i:s');
+    $stmt = $pdo->prepare(
+        'INSERT INTO tb_ventas_sync (fuente, ultima_fila_sincronizada, fecha_sincronizacion, ultimo_error)
+         VALUES (?, 0, ?, ?)
+         ON DUPLICATE KEY UPDATE fecha_sincronizacion = VALUES(fecha_sincronizacion), ultimo_error = VALUES(ultimo_error)'
+    );
+    $stmt->execute([FUENTE_VENTAS_MICROSIP_SHEET, $ahora, mb_substr($mensaje, 0, 500)]);
+}
+
+function obtenerEstadoSincronizacionVentas(PDO $pdo): ?array
+{
+    $stmt = $pdo->prepare('SELECT * FROM tb_ventas_sync WHERE fuente = ?');
+    $stmt->execute([FUENTE_VENTAS_MICROSIP_SHEET]);
+
+    return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+}
