@@ -167,6 +167,12 @@ $remisionesManualesDosificadorActivas = remisionesManualesDosificadorHabilitadas
               </a>
             </li>
             <li class="nav-item">
+              <a href="../configuracion/centro_canje.php" class="nav-link">
+                <i class="bi bi-geo-alt"></i>
+                <p>CENTRO DE CANJE</p>
+              </a>
+            </li>
+            <li class="nav-item">
               <a href="../administracion/bitacora.php" class="nav-link">
                 <i class="bi bi-journal-text"></i>
                 <p>BITACORA DE CAMBIOS</p>

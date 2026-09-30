@@ -2,7 +2,10 @@
 require_once("../app/config/config.php");
 require_once("../app/functions/auth.php");
 require_once('../app/functions/consultas.php');
+require_once('../app/functions/configuracion_canje.php');
 verificarSesion();
+
+$configuracionCentroCanje = obtenerConfiguracionCentroCanje($pdo);
 
 $rol = $_SESSION['rol'] ?? '';
 $idUsuario = (int) ($_SESSION['id_usuario_login'] ?? 0);
@@ -69,18 +72,22 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
 
         .credencial-cliente-preview {
             width: min(100%, 420px);
-            aspect-ratio: 85.6 / 54;
             margin: 0 auto;
             border: 1px solid #d7dde8;
             border-radius: 8px;
-            background: linear-gradient(135deg, #ffffff 0%, #f7f9fc 58%, #eef4fb 100%);
             box-shadow: 0 14px 30px rgba(15, 23, 42, 0.14);
             overflow: hidden;
             position: relative;
             color: #172033;
         }
 
-        .credencial-cliente-preview::before {
+        .credencial-cliente-tarjeta {
+            aspect-ratio: 85.6 / 54;
+            background: linear-gradient(135deg, #ffffff 0%, #f7f9fc 58%, #eef4fb 100%);
+            position: relative;
+        }
+
+        .credencial-cliente-tarjeta::before {
             content: "";
             position: absolute;
             inset: 0 0 auto 0;
@@ -92,14 +99,31 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
             height: 100%;
             padding: 20px 20px 14px;
             display: grid;
-            grid-template-columns: 1fr 132px;
+            grid-template-columns: 1fr 150px;
             gap: 16px;
             align-items: start;
         }
 
+        .credencial-cliente-pie {
+            padding: 8px 20px;
+            font-size: 0.72rem;
+            line-height: 1.35;
+            text-align: center;
+            color: #42526a;
+            background: #f1f4f9;
+            border-top: 1px solid #d7dde8;
+        }
+
+        .credencial-cliente-pie-icono {
+            width: 12px;
+            height: 12px;
+            vertical-align: -1px;
+            margin: 0 2px;
+        }
+
         .credencial-cliente-logo {
-            width: 112px;
-            height: 60px;
+            width: 150px;
+            height: 80px;
             object-fit: contain;
             display: block;
             margin-bottom: 6px;
@@ -134,8 +158,9 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
 
         .credencial-cliente-qr {
             justify-self: end;
-            width: 132px;
-            height: 132px;
+            align-self: center;
+            width: 150px;
+            height: 150px;
             padding: 8px;
             background: #ffffff;
             border: 1px solid #e0e6ef;
@@ -147,8 +172,8 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
 
         .credencial-cliente-qr img,
         .credencial-cliente-qr canvas {
-            width: 112px !important;
-            height: 112px !important;
+            width: 130px !important;
+            height: 130px !important;
         }
 
         .credencial-cliente-texto-qr {
@@ -647,16 +672,19 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
                 </div>
                 <div class="modal-body">
                     <div class="credencial-cliente-preview" id="credencialCliente">
-                        <div class="credencial-cliente-inner">
-                            <div>
-                                <img class="credencial-cliente-logo" src="../app/img/marca/logo_concretos_americas.png" alt="Concretos Americas">
-                                <div class="credencial-cliente-titulo">Cliente recompensas</div>
-                                <div class="credencial-cliente-nombre" id="credencialClienteNombre">Cliente</div>
-                                <div class="credencial-cliente-dato">Telefono: <strong id="credencialClienteTelefono"></strong></div>
-                                <div class="credencial-cliente-dato">ID: <strong id="credencialClienteId"></strong></div>
+                        <div class="credencial-cliente-tarjeta">
+                            <div class="credencial-cliente-inner">
+                                <div>
+                                    <img class="credencial-cliente-logo" src="../app/img/marca/logo_concretos_americas.png" alt="Concretos Americas">
+                                    <div class="credencial-cliente-titulo">Aliado en Obra</div>
+                                    <div class="credencial-cliente-nombre" id="credencialClienteNombre">Cliente</div>
+                                    <div class="credencial-cliente-dato">Telefono: <strong id="credencialClienteTelefono"></strong></div>
+                                    <div class="credencial-cliente-dato">ID: <strong id="credencialClienteId"></strong></div>
+                                </div>
+                                <div class="credencial-cliente-qr" id="credencialClienteQr"></div>
                             </div>
-                            <div class="credencial-cliente-qr" id="credencialClienteQr"></div>
                         </div>
+                        <div class="credencial-cliente-pie">Centro de Canje: <?php echo htmlspecialchars($configuracionCentroCanje['direccion']); ?><br><img class="credencial-cliente-pie-icono" src="../app/img/iconos/telefono.svg" alt="Telefono"><img class="credencial-cliente-pie-icono" src="../app/img/iconos/whatsapp.svg" alt="WhatsApp"> <?php echo htmlspecialchars($configuracionCentroCanje['telefono']); ?> &middot; <?php echo htmlspecialchars($configuracionCentroCanje['nombre_centro']); ?></div>
                     </div>
                     <div class="mt-3">
                         <div class="small text-muted mb-1">Contenido del QR</div>
@@ -682,6 +710,12 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
     <script>
+        const configuracionCentroCanje = <?php echo json_encode([
+            'nombreCentro' => $configuracionCentroCanje['nombre_centro'],
+            'direccion' => $configuracionCentroCanje['direccion'],
+            'telefono' => $configuracionCentroCanje['telefono'],
+        ], JSON_UNESCAPED_UNICODE); ?>;
+
         $(document).ready(function() {
             if ($('#tablaClientes').length) {
                 $('#tablaClientes').DataTable({
@@ -747,6 +781,8 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
         const idCredencial = document.getElementById('credencialClienteId');
         const textoQrCredencial = document.getElementById('credencialClienteTextoQr');
         const logoCredencial = new URL('../app/img/marca/logo_concretos_americas.png', window.location.href).href;
+        const iconoTelefonoCredencial = new URL('../app/img/iconos/telefono.svg', window.location.href).href;
+        const iconoWhatsappCredencial = new URL('../app/img/iconos/whatsapp.svg', window.location.href).href;
         let datosCredencialCliente = null;
 
         function limpiarQrCliente() {
@@ -787,8 +823,8 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
 
             new QRCode(qrClienteContenedor, {
                 text: textoQr,
-                width: 112,
-                height: 112,
+                width: 130,
+                height: 130,
                 colorDark: '#101827',
                 colorLight: '#ffffff',
                 correctLevel: QRCode.CorrectLevel.M
@@ -855,6 +891,19 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
         });
         imagenLogoCredencial.src = logoCredencial;
 
+        function precargarIcono(url) {
+            const imagen = new Image();
+            const cargado = new Promise(function(resolver) {
+                imagen.onload = function() { resolver(true); };
+                imagen.onerror = function() { resolver(false); };
+            });
+            imagen.src = url;
+            return { imagen: imagen, cargado: cargado };
+        }
+
+        const iconoTelefonoPrecargado = precargarIcono(iconoTelefonoCredencial);
+        const iconoWhatsappPrecargado = precargarIcono(iconoWhatsappCredencial);
+
         function dividirTextoEnLineas(ctx, texto, anchoMax) {
             const lineas = [];
             let linea = '';
@@ -919,18 +968,20 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
 
         async function crearImagenCredencial(datos) {
             const ancho = 1200;
-            const alto = 756;
+            const altoTarjeta = 756;
+            const altoPie = 96;
+            const alto = altoTarjeta + altoPie;
             const lienzo = document.createElement('canvas');
             lienzo.width = ancho;
             lienzo.height = alto;
             const ctx = lienzo.getContext('2d');
 
-            const fondo = ctx.createLinearGradient(0, 0, ancho, alto);
+            const fondo = ctx.createLinearGradient(0, 0, ancho, altoTarjeta);
             fondo.addColorStop(0, '#ffffff');
             fondo.addColorStop(0.58, '#f7f9fc');
             fondo.addColorStop(1, '#eef4fb');
             ctx.fillStyle = fondo;
-            ctx.fillRect(0, 0, ancho, alto);
+            ctx.fillRect(0, 0, ancho, altoTarjeta);
 
             ctx.fillStyle = '#c41230';
             ctx.fillRect(0, 0, ancho * 0.4, 44);
@@ -938,29 +989,29 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
             ctx.fillRect(ancho * 0.4, 0, ancho * 0.6, 44);
             ctx.strokeStyle = '#d7dde8';
             ctx.lineWidth = 4;
-            ctx.strokeRect(2, 2, ancho - 4, alto - 4);
+            ctx.strokeRect(2, 2, ancho - 4, altoTarjeta - 4);
 
             // El QR ocupa la mitad derecha de la tarjeta, lo mas grande posible.
             const margen = 60;
             const relleno = 44;
-            const qr = crearQrAltaResolucion(datos.textoQr, 500);
+            const qr = crearQrAltaResolucion(datos.textoQr, 560);
             const lado = qr ? qr.width + relleno * 2 : 0;
             const cajaX = ancho - margen - lado;
             const anchoTexto = (lado ? cajaX : ancho) - margen - 30;
 
             if (await logoCredencialCargado && imagenLogoCredencial.naturalWidth) {
-                const escala = Math.min(340 / imagenLogoCredencial.naturalWidth, 160 / imagenLogoCredencial.naturalHeight);
-                ctx.drawImage(imagenLogoCredencial, margen, 76,
+                const escala = Math.min(430 / imagenLogoCredencial.naturalWidth, 200 / imagenLogoCredencial.naturalHeight);
+                ctx.drawImage(imagenLogoCredencial, margen, 62,
                     imagenLogoCredencial.naturalWidth * escala, imagenLogoCredencial.naturalHeight * escala);
             }
 
             ctx.textBaseline = 'alphabetic';
             ctx.fillStyle = '#c41230';
             ctx.font = '800 28px Arial, sans-serif';
-            ctx.fillText('CLIENTE RECOMPENSAS', margen, 278);
+            ctx.fillText('ALIADO EN OBRA', margen, 300);
 
             ctx.fillStyle = '#172033';
-            let y = 340;
+            let y = 362;
             y += dibujarNombreAjustado(ctx, String(datos.nombre || '').toUpperCase(), margen, y, anchoTexto, 3) + 14;
 
             const dibujarDato = function(etiqueta, valor) {
@@ -977,7 +1028,7 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
             dibujarDato('ID:', datos.idCliente);
 
             if (qr) {
-                const cajaY = 44 + (alto - 44 - lado) / 2;
+                const cajaY = 44 + (altoTarjeta - 44 - lado) / 2;
                 ctx.fillStyle = '#ffffff';
                 ctx.fillRect(cajaX, cajaY, lado, lado);
                 ctx.strokeStyle = '#d7dde8';
@@ -986,6 +1037,38 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
                 ctx.imageSmoothingEnabled = false;
                 ctx.drawImage(qr, cajaX + relleno, cajaY + relleno, qr.width, qr.height);
             }
+
+            // Pie con el centro de canje, debajo de la tarjeta.
+            ctx.fillStyle = '#f1f4f9';
+            ctx.fillRect(0, altoTarjeta, ancho, altoPie);
+            ctx.strokeStyle = '#d7dde8';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(2, altoTarjeta, ancho - 4, altoPie - 2);
+            ctx.fillStyle = '#42526a';
+            ctx.font = '600 24px Arial, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('Centro de Canje: ' + configuracionCentroCanje.direccion, ancho / 2, altoTarjeta + altoPie / 2 - 10);
+
+            const textoContacto = configuracionCentroCanje.telefono + '  ·  ' + configuracionCentroCanje.nombreCentro;
+            const anchoTextoContacto = ctx.measureText(textoContacto).width;
+            const yContacto = altoTarjeta + altoPie / 2 + 22;
+            const ladoIcono = 22;
+            const espacioEntreIconos = 5;
+            const espacioIconoTexto = 8;
+
+            await Promise.all([iconoTelefonoPrecargado.cargado, iconoWhatsappPrecargado.cargado]);
+            const hayIconos = iconoTelefonoPrecargado.imagen.naturalWidth && iconoWhatsappPrecargado.imagen.naturalWidth;
+            const anchoIconos = hayIconos ? (ladoIcono * 2 + espacioEntreIconos + espacioIconoTexto) : 0;
+            const inicioX = ancho / 2 - (anchoIconos + anchoTextoContacto) / 2;
+
+            if (hayIconos) {
+                ctx.imageSmoothingEnabled = true;
+                ctx.drawImage(iconoTelefonoPrecargado.imagen, inicioX, yContacto - ladoIcono + 7, ladoIcono, ladoIcono);
+                ctx.drawImage(iconoWhatsappPrecargado.imagen, inicioX + ladoIcono + espacioEntreIconos, yContacto - ladoIcono + 7, ladoIcono, ladoIcono);
+            }
+
+            ctx.textAlign = 'left';
+            ctx.fillText(textoContacto, inicioX + anchoIconos, yContacto);
 
             return new Promise(function(resolver) {
                 lienzo.toBlob(resolver, 'image/png');
@@ -1069,7 +1152,11 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
                 return;
             }
 
-            const imagenQr = obtenerQrClienteComoImagen();
+            // Para imprimir se genera el QR aparte, en alta resolucion: el que se ve
+            // en pantalla es chico (~130px) y una impresora de PVC lo saca pixeleado
+            // si se estira a los 27mm de la tarjeta.
+            const qrImpresion = crearQrAltaResolucion(datosCredencialCliente.textoQr, 640);
+            const imagenQr = qrImpresion ? qrImpresion.toDataURL('image/png') : '';
             if (!imagenQr) {
                 Swal.fire('', 'No se pudo preparar la credencial para impresion.', 'error');
                 return;
@@ -1111,19 +1198,39 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
             background: linear-gradient(90deg, #c41230 0%, #c41230 40%, #174a94 40%, #174a94 100%);
         }
         .contenido {
-            height: calc(54mm - 3.2mm);
-            padding: 3.8mm 5.2mm 3.6mm;
+            height: calc(54mm - 3.2mm - 7.3mm);
+            padding: 2.6mm 5.2mm 1.4mm;
             display: grid;
-            grid-template-columns: 1fr 28mm;
-            gap: 4mm;
+            grid-template-columns: 1fr 30mm;
+            gap: 3mm;
             align-items: start;
         }
+        .pie {
+            height: 7.3mm;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            line-height: 1.25;
+            font-size: 6.5pt;
+            font-weight: 600;
+            color: #172033;
+            background: #f1f4f9;
+            border-top: 0.2mm solid #d7dde8;
+            padding: 0 2mm;
+        }
+        .pie-icono {
+            width: 2.6mm;
+            height: 2.6mm;
+            vertical-align: -0.3mm;
+            margin: 0 0.4mm;
+        }
         .logo {
-            width: 28mm;
-            height: 14mm;
+            width: 30mm;
+            height: 14.5mm;
             object-fit: contain;
             display: block;
-            margin-bottom: 1.6mm;
+            margin-bottom: 1mm;
         }
         .titulo {
             font-size: 7pt;
@@ -1147,17 +1254,19 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
         }
         .dato strong { color: #172033; }
         .qr {
-            width: 28mm;
-            height: 28mm;
-            padding: 1.8mm;
+            width: 30mm;
+            height: 30mm;
+            padding: 1.5mm;
             border: 0.3mm solid #e0e6ef;
             border-radius: 1.6mm;
             background: #ffffff;
+            align-self: center;
         }
         .qr img {
-            width: 24.4mm;
-            height: 24.4mm;
+            width: 27mm;
+            height: 27mm;
             display: block;
+            image-rendering: pixelated;
         }
     </style>
 </head>
@@ -1167,13 +1276,14 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
         <div class="contenido">
             <div>
                 <img class="logo" src="${logoCredencial}" alt="Concretos Americas">
-                <div class="titulo">Cliente recompensas</div>
+                <div class="titulo">Aliado en Obra</div>
                 <div class="nombre">${escaparHtml(datosCredencialCliente.nombre)}</div>
                 <div class="dato">Telefono: <strong>${escaparHtml(datosCredencialCliente.telefono)}</strong></div>
                 <div class="dato">ID: <strong>${escaparHtml(datosCredencialCliente.idCliente)}</strong></div>
             </div>
             <div class="qr"><img src="${imagenQr}" alt="QR cliente"></div>
         </div>
+        <div class="pie"><span>Centro de Canje: ${escaparHtml(configuracionCentroCanje.direccion)}<br><img class="pie-icono" src="${iconoTelefonoCredencial}" alt="Telefono"><img class="pie-icono" src="${iconoWhatsappCredencial}" alt="WhatsApp"> ${escaparHtml(configuracionCentroCanje.telefono)} &middot; ${escaparHtml(configuracionCentroCanje.nombreCentro)}</span></div>
     </div>
     <script>
         window.addEventListener('load', function() {
