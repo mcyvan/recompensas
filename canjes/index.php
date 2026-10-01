@@ -14,6 +14,8 @@ $mensajeCorrecto = $_SESSION['mensaje_canje_correcto'] ?? null;
 $mensajeError = $_SESSION['mensaje_canje_error'] ?? null;
 $canjeRealizado = $_SESSION['canje_realizado'] ?? null;
 $puedeAdministrarCanjes = puedeAdministrarCanjes();
+$canjesRegistrados = obtenerCanjesRegistrados($pdo);
+$tabActivo = ($_GET['tab'] ?? '') === 'listado' ? 'listado' : 'registro';
 unset($_SESSION['mensaje_canje_correcto'], $_SESSION['mensaje_canje_error'], $_SESSION['canje_realizado']);
 ?>
 <!doctype html>
@@ -70,20 +72,33 @@ unset($_SESSION['mensaje_canje_correcto'], $_SESSION['mensaje_canje_error'], $_S
                 <?php endif; ?>
 
                 <div class="card card-primary card-outline mb-4">
-                    <div class="card-header"><b>1. Buscar cliente</b></div>
-                    <div class="card-body">
-                        <div class="row g-2">
-                            <div class="col-md-5">
-                                <input type="tel" id="telefono" class="form-control form-control-lg" maxlength="10" inputmode="numeric" placeholder="Numero celular de 10 digitos">
-                            </div>
-                            <div class="col-md-3">
-                                <button type="button" id="btnBuscar" class="btn btn-primary btn-lg w-100">Consultar</button>
-                            </div>
-                        </div>
+                    <div class="card-header">
+                        <ul class="nav nav-tabs card-header-tabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link <?= $tabActivo === 'registro' ? 'active' : '' ?>" id="tab-registro" data-bs-toggle="tab" data-bs-target="#panel-registro" type="button" role="tab">
+                                    Registrar canje
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link <?= $tabActivo === 'listado' ? 'active' : '' ?>" id="tab-listado" data-bs-toggle="tab" data-bs-target="#panel-listado" type="button" role="tab">
+                                    Canjes realizados
+                                </button>
+                            </li>
+                        </ul>
                     </div>
-                </div>
+                    <div class="card-body tab-content">
+                        <div class="tab-pane fade <?= $tabActivo === 'registro' ? 'show active' : '' ?>" id="panel-registro" role="tabpanel" aria-labelledby="tab-registro">
+                            <h5 class="mb-3">1. Buscar cliente</h5>
+                            <div class="row g-2">
+                                <div class="col-md-5">
+                                    <input type="tel" id="telefono" class="form-control form-control-lg" maxlength="10" inputmode="numeric" placeholder="Numero celular de 10 digitos">
+                                </div>
+                                <div class="col-md-3">
+                                    <button type="button" id="btnBuscar" class="btn btn-primary btn-lg w-100">Consultar</button>
+                                </div>
+                            </div>
 
-                <div id="contenidoCanje" class="d-none">
+                <div id="contenidoCanje" class="d-none mt-3">
                     <div class="alert alert-info d-flex flex-wrap justify-content-between gap-2">
                         <div><b>Cliente:</b> <span id="clienteNombre"></span></div>
                         <div><b>Puntos disponibles:</b> <span id="clienteSaldo">0</span></div>
@@ -121,6 +136,72 @@ unset($_SESSION['mensaje_canje_correcto'], $_SESSION['mensaje_canje_error'], $_S
                         <div class="card-body" id="historialCanjes"></div>
                     </div>
                 </div>
+                        </div>
+
+                        <div class="tab-pane fade <?= $tabActivo === 'listado' ? 'show active' : '' ?>" id="panel-listado" role="tabpanel" aria-labelledby="tab-listado">
+                            <div class="table-responsive">
+                                <table id="tablaCanjes" class="table table-striped table-bordered align-middle" style="width:100%">
+                                    <thead>
+                                        <tr>
+                                            <th>Folio</th>
+                                            <th>Cliente</th>
+                                            <th>Telefono</th>
+                                            <th>Premios</th>
+                                            <th>Total puntos</th>
+                                            <th>Saldo antes</th>
+                                            <th>Saldo despues</th>
+                                            <th>Usuario</th>
+                                            <th>Fecha</th>
+                                            <th>Estatus</th>
+                                            <?php if ($puedeAdministrarCanjes): ?>
+                                                <th>Acciones</th>
+                                            <?php endif; ?>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php foreach ($canjesRegistrados as $canje): ?>
+                                            <tr>
+                                                <td><?= htmlspecialchars($canje['folio'], ENT_QUOTES, 'UTF-8') ?></td>
+                                                <td><?= htmlspecialchars(trim($canje['nombres'] . ' ' . $canje['apellido_p'] . ' ' . $canje['apellido_m']), ENT_QUOTES, 'UTF-8') ?></td>
+                                                <td><?= htmlspecialchars($canje['telefono'], ENT_QUOTES, 'UTF-8') ?></td>
+                                                <td>
+                                                    <?php foreach ($canje['detalles'] as $detalle): ?>
+                                                        <div>
+                                                            <?= (int) $detalle['cantidad'] ?> x <?= htmlspecialchars($detalle['premio'], ENT_QUOTES, 'UTF-8') ?>
+                                                            <span class="text-muted">(<?= number_format((float) $detalle['puntos_total'], 2) ?> pts)</span>
+                                                        </div>
+                                                    <?php endforeach; ?>
+                                                </td>
+                                                <td><?= number_format((float) $canje['total_puntos'], 2) ?></td>
+                                                <td><?= number_format((float) $canje['saldo_antes'], 2) ?></td>
+                                                <td><?= number_format((float) $canje['saldo_despues'], 2) ?></td>
+                                                <td><?= htmlspecialchars($canje['usuario'], ENT_QUOTES, 'UTF-8') ?></td>
+                                                <td><?= htmlspecialchars($canje['fecha_canje'], ENT_QUOTES, 'UTF-8') ?></td>
+                                                <td>
+                                                    <span class="badge <?= $canje['estatus'] === 'CANCELADO' ? 'text-bg-danger' : 'text-bg-success' ?>">
+                                                        <?= htmlspecialchars($canje['estatus'], ENT_QUOTES, 'UTF-8') ?>
+                                                    </span>
+                                                    <?php if ($canje['estatus'] === 'CANCELADO' && !empty($canje['motivo_cancelacion'])): ?>
+                                                        <div class="small text-muted mt-1"><?= htmlspecialchars($canje['motivo_cancelacion'], ENT_QUOTES, 'UTF-8') ?></div>
+                                                    <?php endif; ?>
+                                                </td>
+                                                <?php if ($puedeAdministrarCanjes): ?>
+                                                    <td class="text-nowrap">
+                                                        <?php if ($canje['estatus'] === 'CONFIRMADO'): ?>
+                                                            <button type="button" class="btn btn-outline-danger btn-sm cancelar-canje" data-id="<?= (int) $canje['id_canje'] ?>" data-folio="<?= htmlspecialchars($canje['folio'], ENT_QUOTES, 'UTF-8') ?>">
+                                                                <i class="bi bi-x-circle"></i>
+                                                            </button>
+                                                        <?php endif; ?>
+                                                    </td>
+                                                <?php endif; ?>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </main>
@@ -134,6 +215,24 @@ unset($_SESSION['mensaje_canje_correcto'], $_SESSION['mensaje_canje_error'], $_S
     const estado = { saldo: 0, premios: {}, carrito: {} };
     const dinero = valor => Number(valor).toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
     const escapar = valor => String(valor ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;'}[c]));
+
+    $('#tablaCanjes').DataTable({
+        order: [[8, 'desc']],
+        pageLength: 25,
+        language: {
+            url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json'
+        }
+    });
+
+    document.querySelectorAll('#tablaCanjes .cancelar-canje').forEach(boton => {
+        boton.addEventListener('click', () => solicitarCancelacion(boton.dataset.id, boton.dataset.folio));
+    });
+
+    document.querySelectorAll('button[data-bs-toggle="tab"]').forEach(tab => {
+        tab.addEventListener('shown.bs.tab', () => {
+            $.fn.dataTable.tables({ visible: true, api: true }).columns.adjust();
+        });
+    });
 
     document.getElementById('btnBuscar').addEventListener('click', buscarCliente);
     document.getElementById('telefono').addEventListener('keydown', e => { if (e.key === 'Enter') buscarCliente(); });

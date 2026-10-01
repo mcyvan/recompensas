@@ -1,3 +1,7 @@
+<?php
+require_once __DIR__ . '/../functions/remisiones.php';
+$remisionesManualesDosificadorActivas = remisionesManualesDosificadorHabilitadas($pdo);
+?>
 <aside class="app-sidebar bg-body-secondary shadow" data-bs-theme="dark">
   <!--begin::Sidebar Brand-->
   <div class="sidebar-brand">
@@ -35,7 +39,15 @@
               <li class="nav-item">
                 <a href="../clientes/registrar_cliente.php" class="nav-link">
                   <i class="bi bi-person-plus"></i>
-                  <p>ALTA CLIENTES</p>
+                  <p>CLIENTES</p>
+                </a>
+              </li>
+            </ul>
+            <ul class="nav nav-treeview">
+              <li class="nav-item">
+                <a href="../clientes/registrar_cliente.php?tab=dashboard" class="nav-link">
+                  <i class="bi bi-speedometer2"></i>
+                  <p>DASHBOARD CLIENTES</p>
                 </a>
               </li>
             </ul>
@@ -48,6 +60,25 @@
               </li>
             </ul>
           </li>
+          <li class="nav-header">REMISIONES</li>
+          <li class="nav-item">
+            <a href="../remisiones/index.php" class="nav-link">
+              <i class="bi bi-receipt"></i>
+              <p>REMISIONES</p>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="../operador/registrar_remision_manual.php" class="nav-link">
+              <i class="bi bi-pencil-square"></i>
+              <p>REGISTRO MANUAL</p>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="../conciliacion/index.php" class="nav-link">
+              <i class="bi bi-file-earmark-spreadsheet"></i>
+              <p>CARGAR VENTAS</p>
+            </a>
+          </li>
           <li class="nav-header">PREMIOS</li>
           <li class="nav-item">
             <a href="#" class="nav-link">
@@ -59,6 +90,14 @@
                 <a href="../premios/registrar_premio.php" class="nav-link">
                   <i class="bi bi-gift"></i>
                   <p>ALTA PREMIOS</p>
+                </a>
+              </li>
+            </ul>
+            <ul class="nav nav-treeview">
+              <li class="nav-item">
+                <a href="../premios/ver_premios.php" class="nav-link">
+                  <i class="bi bi-images"></i>
+                  <p>VER PREMIOS</p>
                 </a>
               </li>
             </ul>
@@ -114,6 +153,40 @@
               <p>PUNTOS POR M&sup3;</p>
             </a>
           </li>
+          <?php if ($_SESSION['rol'] === 'ADMINISTRADOR') { ?>
+            <li class="nav-item">
+              <a href="../configuracion/modulos.php" class="nav-link">
+                <i class="bi bi-toggles"></i>
+                <p>ACCESO DOSIFICADOR</p>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a href="../configuracion/alertas_descargas.php" class="nav-link">
+                <i class="bi bi-envelope-exclamation"></i>
+                <p>ALERTAS DESCARGAS</p>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a href="../configuracion/centro_canje.php" class="nav-link">
+                <i class="bi bi-geo-alt"></i>
+                <p>CENTRO DE CANJE</p>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a href="../administracion/bitacora.php" class="nav-link">
+                <i class="bi bi-journal-text"></i>
+                <p>BITACORA DE CAMBIOS</p>
+              </a>
+            </li>
+          <?php } ?>
+          <?php if ($_SESSION['rol'] === 'ADMINISTRADOR') { ?>
+            <li class="nav-item">
+              <a href="../administracion/limpieza_pruebas.php" class="nav-link">
+                <i class="bi bi-trash3"></i>
+                <p>LIMPIEZA PRUEBAS</p>
+              </a>
+            </li>
+          <?php } ?>
           <!-- <li class="nav-item">
             <a href="#" class="nav-link">
               <i class="bi bi-journals"></i>
@@ -160,14 +233,79 @@
             </ul>
           </li> -->
         <?php
-        } elseif ($_SESSION['rol'] == "VENDEDORES") {; ?>
+        } elseif (in_array($_SESSION['rol'], ["VENDEDOR", "VENDEDORES"], true)) {; ?>
           <li class="nav-item">
             <a href="../clientes/registrar_cliente.php" class="nav-link">
               <i class="bi bi-window-plus"></i>
-              <p>ALTA CLIENTES</p>
+              <p>CLIENTES</p>
+            </a>
+          </li>
+          <li class="nav-header">PREMIOS</li>
+          <li class="nav-item">
+            <a href="../premios/ver_premios.php" class="nav-link">
+              <i class="bi bi-images"></i>
+              <p>VER PREMIOS</p>
             </a>
           </li>
 
+        <?php } elseif ($_SESSION['rol'] === 'LOGISTICA') { ?>
+          <li class="nav-header">CLIENTES</li>
+          <li class="nav-item">
+            <a href="../clientes/registrar_cliente.php" class="nav-link">
+              <i class="bi bi-people"></i>
+              <p>CLIENTES</p>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="../clientes/registrar_cliente.php?tab=dashboard" class="nav-link">
+              <i class="bi bi-speedometer2"></i>
+              <p>DASHBOARD CLIENTES</p>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="../clientes/consultar_puntos.php" class="nav-link">
+              <i class="bi bi-search"></i>
+              <p>CONSULTA PUNTOS</p>
+            </a>
+          </li>
+          <li class="nav-header">REMISIONES</li>
+          <li class="nav-item">
+            <a href="../remisiones/index.php" class="nav-link">
+              <i class="bi bi-receipt"></i>
+              <p>REMISIONES</p>
+            </a>
+          </li>
+          <li class="nav-header">PREMIOS</li>
+          <li class="nav-item">
+            <a href="../premios/ver_premios.php" class="nav-link">
+              <i class="bi bi-images"></i>
+              <p>VER PREMIOS</p>
+            </a>
+          </li>
+          <li class="nav-header">SISTEMA</li>
+          <li class="nav-item">
+            <a href="<?php echo LOGISTICA_LOGIN_URL; ?>" class="nav-link">
+              <i class="bi bi-arrow-left-circle"></i>
+              <p>REGRESAR A LOGISTICA</p>
+            </a>
+          </li>
+        <?php } elseif ($_SESSION['rol'] === 'DOSIFICADOR') { ?>
+          <?php if ($remisionesManualesDosificadorActivas) { ?>
+            <li class="nav-header">REMISIONES</li>
+            <li class="nav-item">
+              <a href="../operador/registrar_remision_manual.php" class="nav-link">
+                <i class="bi bi-pencil-square"></i>
+                <p>REGISTRO MANUAL</p>
+              </a>
+            </li>
+          <?php } ?>
+          <li class="nav-header">SISTEMA</li>
+          <li class="nav-item">
+            <a href="<?php echo LOGISTICA_LOGIN_URL; ?>" class="nav-link">
+              <i class="bi bi-arrow-left-circle"></i>
+              <p>REGRESAR A LOGISTICA</p>
+            </a>
+          </li>
         <?php } elseif (in_array($_SESSION['rol'], ['CANJE', 'ADMIN CANJE'], true)) { ?>
           <li class="nav-header">CANJES</li>
           <li class="nav-item">
@@ -176,6 +314,15 @@
               <p>CANJEAR PREMIOS</p>
             </a>
           </li>
+          <?php if ($_SESSION['rol'] === 'ADMIN CANJE') { ?>
+            <li class="nav-header">REMISIONES</li>
+            <li class="nav-item">
+              <a href="../remisiones/index.php" class="nav-link">
+                <i class="bi bi-receipt"></i>
+                <p>REMISIONES</p>
+              </a>
+            </li>
+          <?php } ?>
         <?php } ?>
       </ul>
       <!--end::Sidebar Menu-->
