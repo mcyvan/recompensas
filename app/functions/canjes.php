@@ -36,6 +36,25 @@ function obtenerSaldoCliente(PDO $pdo, int $idCliente): float
     return round((float) $stmt->fetchColumn(), 2);
 }
 
+// id_cliente => saldo de puntos vigente. Para listados (p.ej. la tabla de
+// clientes) donde pedir el saldo uno por uno haria una consulta por fila.
+function obtenerSaldoPuntosTodosClientes(PDO $pdo): array
+{
+    $stmt = $pdo->query(
+        "SELECT id_cliente, COALESCE(SUM(puntos), 0) AS saldo
+         FROM tb_movimientos_puntos
+         WHERE fecha_vencimiento IS NULL OR fecha_vencimiento >= CURRENT_DATE
+         GROUP BY id_cliente"
+    );
+
+    $saldos = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+        $saldos[(int) $fila['id_cliente']] = round((float) $fila['saldo'], 2);
+    }
+
+    return $saldos;
+}
+
 function obtenerClienteCanjePorTelefono(PDO $pdo, string $telefono): ?array
 {
     $stmt = $pdo->prepare(

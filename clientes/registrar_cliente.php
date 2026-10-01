@@ -3,6 +3,7 @@ require_once("../app/config/config.php");
 require_once("../app/functions/auth.php");
 require_once('../app/functions/consultas.php');
 require_once('../app/functions/configuracion_canje.php');
+require_once('../app/functions/canjes.php');
 verificarSesion();
 
 $configuracionCentroCanje = obtenerConfiguracionCentroCanje($pdo);
@@ -22,6 +23,7 @@ $clientes = ($esAdministracion || $esLogistica)
     : ($esVendedor ? obtenerClientesPorUsuario($idUsuario) : []);
 
 $vendedores = $puedeElegirVendedorCliente ? obtenerVendedores() : [];
+$saldosPuntosClientes = $puedeVerClientes ? obtenerSaldoPuntosTodosClientes($pdo) : [];
 $mostrarDashboardClientes = $esAdministracion || $esLogistica;
 $resumenDashboardClientes = $mostrarDashboardClientes ? obtenerResumenDashboardClientes() : [];
 $dashboardClientesPorVendedor = $mostrarDashboardClientes ? obtenerDashboardClientesPorVendedor() : [];
@@ -455,6 +457,8 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
                                                     <th>Fecha Registro</th>
                                                     <th>Vendedor</th>
                                                     <th>Estatus</th>
+                                                    <th>Puntos</th>
+                                                    <th>Credencial</th>
                                                     <th>Acciones</th>
                                                 </tr>
                                             </thead>
@@ -464,6 +468,10 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
                                                 foreach ($clientes as $cliente) {
                                                     $cont_clientes = $cont_clientes + 1;
                                                 ?>
+                                                    <?php
+                                                    $nombreCompletoClienteFila = trim($cliente['nombres'] . ' ' . $cliente['apellido_p'] . ' ' . $cliente['apellido_m']);
+                                                    $puntosCliente = $saldosPuntosClientes[(int) $cliente['id_cliente']] ?? 0;
+                                                    ?>
                                                     <tr>
                                                         <td><?php echo $cont_clientes; ?></td>
                                                         <td><?php echo $cliente['nombres']; ?></td>
@@ -491,10 +499,16 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
                                                             }
                                                             ?>
                                                         </td>
+                                                        <td data-order="<?php echo $puntosCliente; ?>"><?php echo number_format($puntosCliente, 2); ?></td>
+                                                        <td class="celda-credencial-impresa" data-id-cliente="<?php echo (int) $cliente['id_cliente']; ?>">
+                                                            <?php if (!empty($cliente['credencial_impresa_fecha'])): ?>
+                                                                <span class="badge text-bg-success" title="Ultima impresion"><?php echo htmlspecialchars($cliente['credencial_impresa_fecha']); ?></span>
+                                                            <?php else: ?>
+                                                                <span class="badge text-bg-secondary">No impresa</span>
+                                                            <?php endif; ?>
+                                                        </td>
                                                         <td>
-                                                            <?php
-                                                            $nombreCompletoCliente = trim($cliente['nombres'] . ' ' . $cliente['apellido_p'] . ' ' . $cliente['apellido_m']);
-                                                            ?>
+                                                            <?php $nombreCompletoCliente = $nombreCompletoClienteFila; ?>
                                                             <div class="acciones-cliente">
                                                                 <?php if ($puedeAdministrarClientes): ?>
                                                                     <?php if ($esAdministracion): ?>
@@ -684,7 +698,7 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
                                 <div class="credencial-cliente-qr" id="credencialClienteQr"></div>
                             </div>
                         </div>
-                        <div class="credencial-cliente-pie">Centro de Canje: <?php echo htmlspecialchars($configuracionCentroCanje['direccion']); ?><br><img class="credencial-cliente-pie-icono" src="../app/img/iconos/telefono.svg" alt="Telefono"><img class="credencial-cliente-pie-icono" src="../app/img/iconos/whatsapp.svg" alt="WhatsApp"> <?php echo htmlspecialchars($configuracionCentroCanje['telefono']); ?> &middot; <?php echo htmlspecialchars($configuracionCentroCanje['nombre_centro']); ?></div>
+                        <div class="credencial-cliente-pie">Centro de Canje <?php echo htmlspecialchars($configuracionCentroCanje['nombre_centro']); ?><br><?php echo htmlspecialchars($configuracionCentroCanje['direccion']); ?><br><img class="credencial-cliente-pie-icono" src="../app/img/iconos/telefono.svg" alt="Telefono"><img class="credencial-cliente-pie-icono" src="../app/img/iconos/whatsapp.svg" alt="WhatsApp"> <?php echo htmlspecialchars($configuracionCentroCanje['telefono']); ?></div>
                     </div>
                     <div class="mt-3">
                         <div class="small text-muted mb-1">Contenido del QR</div>
@@ -699,9 +713,11 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
                     <button type="button" class="btn btn-success" id="btnEnviarWhatsappCliente">
                         <i class="bi bi-whatsapp"></i> Enviar por WhatsApp
                     </button>
+                    <?php if ($rol === 'ADMINISTRADOR'): ?>
                     <button type="button" class="btn btn-primary" id="btnImprimirCredencialCliente">
                         <i class="bi bi-printer"></i> Imprimir credencial
                     </button>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
@@ -719,6 +735,10 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
         $(document).ready(function() {
             if ($('#tablaClientes').length) {
                 $('#tablaClientes').DataTable({
+                    order: [[10, 'desc']],
+                    columnDefs: [
+                        { orderable: false, targets: [12] }
+                    ],
                     "language": {
                         "url": "//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json"
                     }
@@ -969,7 +989,7 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
         async function crearImagenCredencial(datos) {
             const ancho = 1200;
             const altoTarjeta = 756;
-            const altoPie = 96;
+            const altoPie = 130;
             const alto = altoTarjeta + altoPie;
             const lienzo = document.createElement('canvas');
             lienzo.width = ancho;
@@ -1044,31 +1064,35 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
             ctx.strokeStyle = '#d7dde8';
             ctx.lineWidth = 2;
             ctx.strokeRect(2, altoTarjeta, ancho - 4, altoPie - 2);
-            ctx.fillStyle = '#42526a';
-            ctx.font = '600 24px Arial, sans-serif';
+            ctx.font = '700 24px Arial, sans-serif';
+            ctx.fillStyle = '#172033';
             ctx.textAlign = 'center';
-            ctx.fillText('Centro de Canje: ' + configuracionCentroCanje.direccion, ancho / 2, altoTarjeta + altoPie / 2 - 10);
+            ctx.fillText('Centro de Canje ' + configuracionCentroCanje.nombreCentro, ancho / 2, altoTarjeta + 34);
 
-            const textoContacto = configuracionCentroCanje.telefono + '  ·  ' + configuracionCentroCanje.nombreCentro;
-            const anchoTextoContacto = ctx.measureText(textoContacto).width;
-            const yContacto = altoTarjeta + altoPie / 2 + 22;
-            const ladoIcono = 22;
+            ctx.font = '600 23px Arial, sans-serif';
+            ctx.fillStyle = '#42526a';
+            ctx.fillText(configuracionCentroCanje.direccion, ancho / 2, altoTarjeta + 68);
+
+            const anchoTelefono = ctx.measureText(configuracionCentroCanje.telefono).width;
+            const yTelefono = altoTarjeta + 102;
+            const ladoIcono = 24;
             const espacioEntreIconos = 5;
             const espacioIconoTexto = 8;
 
             await Promise.all([iconoTelefonoPrecargado.cargado, iconoWhatsappPrecargado.cargado]);
             const hayIconos = iconoTelefonoPrecargado.imagen.naturalWidth && iconoWhatsappPrecargado.imagen.naturalWidth;
             const anchoIconos = hayIconos ? (ladoIcono * 2 + espacioEntreIconos + espacioIconoTexto) : 0;
-            const inicioX = ancho / 2 - (anchoIconos + anchoTextoContacto) / 2;
+            const inicioX = ancho / 2 - (anchoIconos + anchoTelefono) / 2;
 
             if (hayIconos) {
                 ctx.imageSmoothingEnabled = true;
-                ctx.drawImage(iconoTelefonoPrecargado.imagen, inicioX, yContacto - ladoIcono + 7, ladoIcono, ladoIcono);
-                ctx.drawImage(iconoWhatsappPrecargado.imagen, inicioX + ladoIcono + espacioEntreIconos, yContacto - ladoIcono + 7, ladoIcono, ladoIcono);
+                ctx.drawImage(iconoTelefonoPrecargado.imagen, inicioX, yTelefono - ladoIcono + 7, ladoIcono, ladoIcono);
+                ctx.drawImage(iconoWhatsappPrecargado.imagen, inicioX + ladoIcono + espacioEntreIconos, yTelefono - ladoIcono + 7, ladoIcono, ladoIcono);
             }
 
+            ctx.fillStyle = '#172033';
             ctx.textAlign = 'left';
-            ctx.fillText(textoContacto, inicioX + anchoIconos, yContacto);
+            ctx.fillText(configuracionCentroCanje.telefono, inicioX + anchoIconos, yTelefono);
 
             return new Promise(function(resolver) {
                 lienzo.toBlob(resolver, 'image/png');
@@ -1147,25 +1171,26 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
             }
         });
 
-        document.getElementById('btnImprimirCredencialCliente').addEventListener('click', function() {
-            if (!datosCredencialCliente) {
-                return;
-            }
-
+        // Abre la ventana de impresion de la credencial de un cliente y
+        // regresa una promesa que se resuelve cuando el usuario termina
+        // (imprime o cancela) para poder encadenar varias en la cola de
+        // impresion por lotes. Nunca se queda colgada: si el navegador no
+        // avisa que el dialogo de impresion se cerro, hay un plazo maximo.
+        function imprimirCredencialCliente(datos) {
             // Para imprimir se genera el QR aparte, en alta resolucion: el que se ve
             // en pantalla es chico (~130px) y una impresora de PVC lo saca pixeleado
             // si se estira a los 27mm de la tarjeta.
-            const qrImpresion = crearQrAltaResolucion(datosCredencialCliente.textoQr, 640);
+            const qrImpresion = crearQrAltaResolucion(datos.textoQr, 640);
             const imagenQr = qrImpresion ? qrImpresion.toDataURL('image/png') : '';
             if (!imagenQr) {
                 Swal.fire('', 'No se pudo preparar la credencial para impresion.', 'error');
-                return;
+                return Promise.resolve(false);
             }
 
             const ventana = window.open('', '_blank', 'width=900,height=650');
             if (!ventana) {
                 Swal.fire('', 'Permite las ventanas emergentes para imprimir la credencial.', 'warning');
-                return;
+                return Promise.resolve(false);
             }
 
             ventana.document.write(`<!doctype html>
@@ -1198,26 +1223,30 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
             background: linear-gradient(90deg, #c41230 0%, #c41230 40%, #174a94 40%, #174a94 100%);
         }
         .contenido {
-            height: calc(54mm - 3.2mm - 7.3mm);
-            padding: 2.6mm 5.2mm 1.4mm;
+            height: calc(54mm - 3.2mm - 10.5mm);
+            padding: 2.2mm 5.2mm 1mm;
             display: grid;
             grid-template-columns: 1fr 30mm;
             gap: 3mm;
             align-items: start;
         }
         .pie {
-            height: 7.3mm;
+            height: 10.5mm;
             display: flex;
             align-items: center;
             justify-content: center;
             text-align: center;
-            line-height: 1.25;
-            font-size: 6.5pt;
-            font-weight: 600;
+            line-height: 1.22;
+            font-size: 6pt;
+            font-weight: 500;
             color: #172033;
             background: #f1f4f9;
             border-top: 0.2mm solid #d7dde8;
             padding: 0 2mm;
+        }
+        .pie strong {
+            font-size: 6.6pt;
+            font-weight: 800;
         }
         .pie-icono {
             width: 2.6mm;
@@ -1227,10 +1256,10 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
         }
         .logo {
             width: 30mm;
-            height: 14.5mm;
+            height: 12.5mm;
             object-fit: contain;
             display: block;
-            margin-bottom: 1mm;
+            margin-bottom: 0.6mm;
         }
         .titulo {
             font-size: 7pt;
@@ -1238,13 +1267,13 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
             letter-spacing: 0.08em;
             color: #c41230;
             text-transform: uppercase;
-            margin-bottom: 0.8mm;
+            margin-bottom: 0.5mm;
         }
         .nombre {
             font-size: 11.5pt;
             font-weight: 800;
             line-height: 1.05;
-            margin-bottom: 1.4mm;
+            margin-bottom: 1mm;
             word-break: break-word;
         }
         .dato {
@@ -1277,13 +1306,13 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
             <div>
                 <img class="logo" src="${logoCredencial}" alt="Concretos Americas">
                 <div class="titulo">Aliado en Obra</div>
-                <div class="nombre">${escaparHtml(datosCredencialCliente.nombre)}</div>
-                <div class="dato">Telefono: <strong>${escaparHtml(datosCredencialCliente.telefono)}</strong></div>
-                <div class="dato">ID: <strong>${escaparHtml(datosCredencialCliente.idCliente)}</strong></div>
+                <div class="nombre">${escaparHtml(datos.nombre)}</div>
+                <div class="dato">Telefono: <strong>${escaparHtml(datos.telefono)}</strong></div>
+                <div class="dato">ID: <strong>${escaparHtml(datos.idCliente)}</strong></div>
             </div>
             <div class="qr"><img src="${imagenQr}" alt="QR cliente"></div>
         </div>
-        <div class="pie"><span>Centro de Canje: ${escaparHtml(configuracionCentroCanje.direccion)}<br><img class="pie-icono" src="${iconoTelefonoCredencial}" alt="Telefono"><img class="pie-icono" src="${iconoWhatsappCredencial}" alt="WhatsApp"> ${escaparHtml(configuracionCentroCanje.telefono)} &middot; ${escaparHtml(configuracionCentroCanje.nombreCentro)}</span></div>
+        <div class="pie"><span><strong>Centro de Canje ${escaparHtml(configuracionCentroCanje.nombreCentro)}</strong><br>${escaparHtml(configuracionCentroCanje.direccion)}<br><img class="pie-icono" src="${iconoTelefonoCredencial}" alt="Telefono"><img class="pie-icono" src="${iconoWhatsappCredencial}" alt="WhatsApp"> ${escaparHtml(configuracionCentroCanje.telefono)}</span></div>
     </div>
     <script>
         window.addEventListener('load', function() {
@@ -1296,6 +1325,67 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
 </html>`);
             ventana.document.close();
             ventana.focus();
+
+            return new Promise(function(resolver) {
+                let resuelto = false;
+                const terminar = function() {
+                    if (resuelto) {
+                        return;
+                    }
+                    resuelto = true;
+                    clearInterval(intervalo);
+                    clearTimeout(limiteMaximo);
+                    resolver(true);
+                };
+
+                ventana.addEventListener('afterprint', terminar);
+                // Respaldo por si el navegador no dispara 'afterprint' (o el
+                // usuario cierra la ventana en vez de usar el dialogo).
+                const intervalo = setInterval(function() {
+                    if (ventana.closed) {
+                        terminar();
+                    }
+                }, 500);
+                // Respaldo final para que la cola de impresion nunca se quede
+                // trabada esperando una ventana que nadie va a cerrar.
+                const limiteMaximo = setTimeout(terminar, 5 * 60 * 1000);
+            });
+        }
+
+        // Guarda en el servidor que esta credencial se imprimio (se
+        // sobrescribe en cada reimpresion) y refresca la etiqueta en la
+        // tabla si la fila esta visible.
+        async function marcarCredencialImpresa(idCliente) {
+            try {
+                const respuesta = await fetch('../controller/controller_marcar_credencial_impresa.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: 'id_cliente=' + encodeURIComponent(idCliente)
+                });
+                const datos = await respuesta.json();
+                if (!datos.ok) {
+                    return false;
+                }
+
+                const celda = document.querySelector('.celda-credencial-impresa[data-id-cliente="' + idCliente + '"]');
+                if (celda) {
+                    celda.innerHTML = '<span class="badge text-bg-success" title="Ultima impresion">' + datos.fecha + '</span>';
+                }
+                return true;
+            } catch (error) {
+                return false;
+            }
+        }
+
+        document.getElementById('btnImprimirCredencialCliente')?.addEventListener('click', async function() {
+            if (!datosCredencialCliente) {
+                return;
+            }
+
+            const impreso = await imprimirCredencialCliente(datosCredencialCliente);
+            if (impreso) {
+                await marcarCredencialImpresa(datosCredencialCliente.idCliente);
+            }
         });
     </script>
 </body>

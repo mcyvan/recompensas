@@ -62,9 +62,10 @@ function obtenerClientes()
                                             tb_clientes.fecha_nacimiento,
                                             tb_clientes.fecha_registro,
                                             tb_clientes.estatus,
+                                            tb_clientes.credencial_impresa_fecha,
                                             tb_usuarios.usuario,
-                                            tb_usuarios.id_usuario                                                                                      
-                                            FROM tb_usuarios 
+                                            tb_usuarios.id_usuario
+                                            FROM tb_usuarios
                                             left JOIN tb_clientes ON tb_clientes.id_usuario=tb_usuarios.id_usuario                                    
                                             WHERE tb_clientes.estatus in ('1','0')
                                             ;");
@@ -90,6 +91,7 @@ function obtenerClientesPorUsuario(int $id_usuario)
                                     tb_clientes.fecha_nacimiento,
                                     tb_clientes.fecha_registro,
                                     tb_clientes.estatus,
+                                    tb_clientes.credencial_impresa_fecha,
                                     tb_usuarios.usuario,
                                     tb_usuarios.id_usuario
                                 FROM tb_clientes
