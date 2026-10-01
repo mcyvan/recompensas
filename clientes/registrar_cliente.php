@@ -737,7 +737,11 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
                 $('#tablaClientes').DataTable({
                     order: [[10, 'desc']],
                     columnDefs: [
-                        { orderable: false, targets: [12] }
+                        { orderable: false, targets: [12] },
+                        // La columna se ve con comas ("1,815.00"); sin esto
+                        // DataTables a veces la detecta como texto y ordena
+                        // alfabeticamente en vez de numericamente.
+                        { type: 'num', targets: [10] }
                     ],
                     "language": {
                         "url": "//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json"
