@@ -41,6 +41,18 @@ function verificarSesion()
         }
     }
 
+    if ($rol === 'SEGUIMIENTO') {
+        $script = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '');
+
+        $esSeguimiento = str_contains($script, '/clientes/seguimiento.php')
+            || basename($script) === 'controller_registrar_llamada.php';
+
+        if (!$esSeguimiento) {
+            header('Location: ../clientes/seguimiento.php');
+            exit();
+        }
+    }
+
     if ($rol === 'LOGISTICA') {
         $script = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '');
         $archivo = basename($script);

@@ -89,6 +89,8 @@ if (!$resultado) {
             header('Location: ../operador/menu_operador.php');
         } else if ($_SESSION['rol'] == "CANJE" || $_SESSION['rol'] == "ADMIN CANJE") {
             header('Location: ../canjes/index.php');
+        } else if ($_SESSION['rol'] == "SEGUIMIENTO") {
+            header('Location: ../clientes/seguimiento.php');
         } else {
             header('Location: ' . $URL . '/login');
         }

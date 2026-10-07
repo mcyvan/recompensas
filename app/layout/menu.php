@@ -59,6 +59,14 @@ $remisionesManualesDosificadorActivas = remisionesManualesDosificadorHabilitadas
                 </a>
               </li>
             </ul>
+            <ul class="nav nav-treeview">
+              <li class="nav-item">
+                <a href="../clientes/seguimiento.php" class="nav-link">
+                  <i class="bi bi-telephone-outbound"></i>
+                  <p>SEGUIMIENTO</p>
+                </a>
+              </li>
+            </ul>
           </li>
           <li class="nav-header">REMISIONES</li>
           <li class="nav-item">
@@ -304,6 +312,14 @@ $remisionesManualesDosificadorActivas = remisionesManualesDosificadorHabilitadas
             <a href="<?php echo LOGISTICA_LOGIN_URL; ?>" class="nav-link">
               <i class="bi bi-arrow-left-circle"></i>
               <p>REGRESAR A LOGISTICA</p>
+            </a>
+          </li>
+        <?php } elseif ($_SESSION['rol'] === 'SEGUIMIENTO') { ?>
+          <li class="nav-header">CLIENTES</li>
+          <li class="nav-item">
+            <a href="../clientes/seguimiento.php" class="nav-link">
+              <i class="bi bi-telephone-outbound"></i>
+              <p>SEGUIMIENTO CLIENTES</p>
             </a>
           </li>
         <?php } elseif (in_array($_SESSION['rol'], ['CANJE', 'ADMIN CANJE'], true)) { ?>
