@@ -52,6 +52,38 @@ $porcentajeProduccion = $totalEsperadasProduccion > 0 ? ($totalRegistradasProduc
         <div class="col-md-3 d-grid"><button class="btn btn-outline-primary" type="submit"><i class="bi bi-funnel"></i> Aplicar filtros</button></div>
     </form>
 
+    <?php
+    $porPlantaProduccion = [];
+    foreach ($porOperadorProduccion as $filaOperador) {
+        $nombre = $filaOperador['planta'];
+        $porPlantaProduccion[$nombre]['esperadas'] = ($porPlantaProduccion[$nombre]['esperadas'] ?? 0) + (int) $filaOperador['remisiones_esperadas'];
+        $porPlantaProduccion[$nombre]['registradas'] = ($porPlantaProduccion[$nombre]['registradas'] ?? 0) + (int) $filaOperador['remisiones_registradas'];
+    }
+    ?>
+    <div class="row g-3 mb-4">
+        <?php foreach (PRODUCCION_PLANTAS_VALIDAS as $nombrePlanta):
+            $esperadasPlanta = (int) ($porPlantaProduccion[$nombrePlanta]['esperadas'] ?? 0);
+            $registradasPlanta = (int) ($porPlantaProduccion[$nombrePlanta]['registradas'] ?? 0);
+            $pctPlanta = $esperadasPlanta > 0 ? $registradasPlanta * 100 / $esperadasPlanta : 0;
+            $claseColorPlanta = $esperadasPlanta === 0 ? '' : ($pctPlanta >= 80 ? 'success' : ($pctPlanta >= 50 ? 'info' : 'danger'));
+        ?>
+            <div class="col-md-4">
+                <div class="conc-metric <?= $claseColorPlanta ?>">
+                    <small class="fw-bold text-uppercase">Planta <?= htmlspecialchars($nombrePlanta, ENT_QUOTES, 'UTF-8') ?></small>
+                    <?php if ($esperadasPlanta > 0): ?>
+                        <strong><?= number_format($pctPlanta, 1) ?>%</strong>
+                        <span><b class="text-dark"><?= number_format($registradasPlanta) ?></b> de <b class="text-dark"><?= number_format($esperadasPlanta) ?></b> remisiones ingresadas</span>
+                        <div class="progress mt-2" style="height:10px"><div class="progress-bar bg-<?= $claseColorPlanta === 'danger' ? 'danger' : ($claseColorPlanta === 'info' ? 'info' : 'success') ?>" style="width:<?= min(100, max(0, $pctPlanta)) ?>%"></div></div>
+                        <span class="mt-1">Faltan <?= number_format($esperadasPlanta - $registradasPlanta) ?></span>
+                    <?php else: ?>
+                        <strong class="text-muted">&mdash;</strong>
+                        <span>Sin remisiones en la bitacora en el periodo</span>
+                    <?php endif; ?>
+                </div>
+            </div>
+        <?php endforeach; ?>
+    </div>
+
     <div class="row g-3 mb-4">
         <div class="col-md-6 col-xl-3"><div class="conc-metric"><small>Remisiones en la bitacora del dosificador</small><strong><?= number_format($totalEsperadasProduccion) ?></strong></div></div>
         <div class="col-md-6 col-xl-3"><div class="conc-metric success"><small>Registradas en Recompensas</small><strong class="text-success"><?= number_format($totalRegistradasProduccion) ?></strong></div></div>
