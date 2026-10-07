@@ -211,7 +211,7 @@ function obtenerRemisiones(PDO $pdo, ?array $filtros = null, int $limite = 1000)
             c.nombres,
             c.apellido_p,
             c.apellido_m,
-            vendedor.usuario AS vendedor,
+            COALESCE(vendedor.usuario, NULLIF(UPPER(TRIM(r.vendedor_crm)), '')) AS vendedor,
             u.usuario AS operador
          FROM tb_remisiones r
          LEFT JOIN tb_clientes c ON c.id_cliente = r.id_cliente
@@ -319,12 +319,15 @@ function expresionVendedorComercialReporte(): string
     return "COALESCE(
         NULLIF(TRIM(CONCAT(vendedor_detalle.nombres, ' ', vendedor_detalle.apellido_p)), ''),
         NULLIF(venta_reporte.vendedor_archivo, ''),
+        NULLIF(UPPER(TRIM(r.vendedor_crm)), ''),
         NULLIF(TRIM(vendedor.usuario), ''),
         'Sin vendedor'
     )";
 }
 
-function obtenerVendedoresComercialesReporte(PDO $pdo): array
+// Etiquetas de vendedor tal como salen de la consulta (una misma persona puede
+// aparecer escrita distinto segun la fuente: usuario, archivo de ventas o QR).
+function etiquetasVendedorComercialReporte(PDO $pdo): array
 {
     $joinVentas = joinVendedorComercialReporte();
     $expresion = expresionVendedorComercialReporte();
@@ -338,6 +341,48 @@ function obtenerVendedoresComercialesReporte(PDO $pdo): array
          ORDER BY vendedor"
     );
     return array_values(array_filter(array_map('strval', $stmt->fetchAll(PDO::FETCH_COLUMN))));
+}
+
+function nombreCanonicoVendedor(string $etiqueta, array $nombresPorClave): string
+{
+    $clave = preg_replace('/\s+/u', '', claveVendedorVenta($etiqueta));
+    return $nombresPorClave[$clave] ?? $etiqueta;
+}
+
+// Lista para el filtro: un solo nombre por vendedor (sin duplicados por apellido).
+function obtenerVendedoresComercialesReporte(PDO $pdo): array
+{
+    if (!function_exists('claveVendedorVenta')) {
+        require_once __DIR__ . '/conciliacion_ventas.php';
+    }
+    $nombresPorClave = nombresVendedoresPorClave($pdo);
+
+    $nombres = [];
+    foreach (etiquetasVendedorComercialReporte($pdo) as $etiqueta) {
+        $nombres[nombreCanonicoVendedor($etiqueta, $nombresPorClave)] = true;
+    }
+    $nombres = array_keys($nombres);
+    sort($nombres);
+
+    return $nombres;
+}
+
+// Todas las etiquetas que corresponden al vendedor elegido en el filtro.
+function etiquetasEquivalentesVendedor(PDO $pdo, string $nombre): array
+{
+    if (!function_exists('claveVendedorVenta')) {
+        require_once __DIR__ . '/conciliacion_ventas.php';
+    }
+    $nombresPorClave = nombresVendedoresPorClave($pdo);
+
+    $etiquetas = [$nombre];
+    foreach (etiquetasVendedorComercialReporte($pdo) as $etiqueta) {
+        if (nombreCanonicoVendedor($etiqueta, $nombresPorClave) === $nombre) {
+            $etiquetas[] = $etiqueta;
+        }
+    }
+
+    return array_values(array_unique($etiquetas));
 }
 
 function prepararFechaInput(?string $fecha): string
@@ -376,7 +421,7 @@ function formatoTiempoRemision($minutos): string
     return $minutosRestantes . ' min';
 }
 
-function filtrosReporteRemisiones(array $entrada): array
+function filtrosReporteRemisiones(array $entrada, ?PDO $pdo = null): array
 {
     $fechaInicio = trim($entrada['fecha_inicio'] ?? '');
     $fechaFin = trim($entrada['fecha_fin'] ?? '');
@@ -410,6 +455,7 @@ function filtrosReporteRemisiones(array $entrada): array
         'cliente' => $cliente,
         'id_operador' => $idOperador,
         'vendedor' => $vendedor,
+        'vendedor_etiquetas' => ($vendedor !== '' && $pdo) ? etiquetasEquivalentesVendedor($pdo, $vendedor) : [$vendedor],
         'estatus' => $estatus,
     ];
 }
@@ -436,8 +482,9 @@ function condicionesReporteRemisiones(array $filtros, array &$parametros): strin
     }
 
     if ($filtros['vendedor'] !== '') {
-        $condiciones[] = expresionVendedorComercialReporte() . ' = ?';
-        $parametros[] = $filtros['vendedor'];
+        $etiquetas = $filtros['vendedor_etiquetas'] ?: [$filtros['vendedor']];
+        $condiciones[] = expresionVendedorComercialReporte() . ' IN (' . implode(',', array_fill(0, count($etiquetas), '?')) . ')';
+        array_push($parametros, ...$etiquetas);
     }
 
     if ($filtros['estatus'] !== '') {
@@ -523,7 +570,7 @@ function obtenerReporteRemisionesPorVendedor(PDO $pdo, array $filtros): array
         "SELECT
             $vendedorComercial AS vendedor,
             COUNT(*) AS total_remisiones,
-            COUNT(DISTINCT c.id_cliente) AS total_clientes,
+            GROUP_CONCAT(DISTINCT c.id_cliente) AS ids_clientes,
             COALESCE(SUM(CASE WHEN r.estatus <> 'CANCELADO' THEN r.volumen ELSE 0 END), 0) AS total_metros,
             COALESCE(SUM(CASE WHEN r.estatus <> 'CANCELADO' THEN r.puntos ELSE 0 END), 0) AS total_puntos,
             MAX(r.hora_inicio) AS ultima_remision
@@ -532,12 +579,76 @@ function obtenerReporteRemisionesPorVendedor(PDO $pdo, array $filtros): array
          LEFT JOIN tb_usuarios vendedor ON vendedor.id_usuario = c.id_usuario
          $joinVentas
          $where
-         GROUP BY $vendedorComercial
-         ORDER BY total_metros DESC, total_remisiones DESC"
+         GROUP BY $vendedorComercial"
     );
     $stmt->execute($parametros);
 
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    // El nombre puede venir de dos fuentes (usuario del cliente: "SAMUEL TORRES";
+    // archivo de ventas: "SAMUEL TORRES CARDONA"). Se unifica por clave de vendedor
+    // (inicial + primer apellido) para que una misma persona sea una sola fila.
+    if (!function_exists('claveVendedorVenta')) {
+        require_once __DIR__ . '/conciliacion_ventas.php';
+    }
+    $nombresPorClave = nombresVendedoresPorClave($pdo);
+
+    $resultado = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+        $etiqueta = (string) $fila['vendedor'];
+        $clave = preg_replace('/\s+/u', '', claveVendedorVenta($etiqueta));
+        $nombre = $nombresPorClave[$clave] ?? $etiqueta;
+
+        if (!isset($resultado[$nombre])) {
+            $resultado[$nombre] = [
+                'vendedor' => $nombre,
+                'total_remisiones' => 0,
+                'clientes' => [],
+                'total_metros' => 0.0,
+                'total_puntos' => 0.0,
+                'ultima_remision' => null,
+            ];
+        }
+        $resultado[$nombre]['total_remisiones'] += (int) $fila['total_remisiones'];
+        $resultado[$nombre]['total_metros'] += (float) $fila['total_metros'];
+        $resultado[$nombre]['total_puntos'] += (float) $fila['total_puntos'];
+        foreach (array_filter(explode(',', (string) $fila['ids_clientes'])) as $idCliente) {
+            $resultado[$nombre]['clientes'][$idCliente] = true;
+        }
+        if ($fila['ultima_remision'] !== null && ($resultado[$nombre]['ultima_remision'] === null || $fila['ultima_remision'] > $resultado[$nombre]['ultima_remision'])) {
+            $resultado[$nombre]['ultima_remision'] = $fila['ultima_remision'];
+        }
+    }
+
+    foreach ($resultado as &$fila) {
+        $fila['total_clientes'] = count($fila['clientes']);
+        unset($fila['clientes']);
+    }
+    unset($fila);
+
+    $resultado = array_values($resultado);
+    usort($resultado, static fn($a, $b) => $b['total_metros'] <=> $a['total_metros'] ?: $b['total_remisiones'] <=> $a['total_remisiones']);
+
+    return $resultado;
+}
+
+// clave de vendedor (inicial + primer apellido, sin espacios) => nombre completo
+// (nombres + apellido paterno) de cada usuario con rol VENDEDOR.
+function nombresVendedoresPorClave(PDO $pdo): array
+{
+    $vendedores = $pdo->query(
+        "SELECT u.usuario, TRIM(CONCAT(ud.nombres, ' ', ud.apellido_p)) AS nombre
+         FROM tb_usuarios u
+         INNER JOIN tb_usuarios_detalle ud ON ud.id_usuario = u.id_usuario
+         INNER JOIN tb_roles r ON r.id_rol = ud.id_rol
+         WHERE r.rol IN ('VENDEDOR', 'VENDEDORES')"
+    )->fetchAll(PDO::FETCH_ASSOC);
+
+    $nombresPorClave = [];
+    foreach ($vendedores as $fila) {
+        $clave = preg_replace('/\s+/u', '', strtoupper((string) $fila['usuario']));
+        $nombresPorClave[$clave] = $fila['nombre'] !== '' ? $fila['nombre'] : $fila['usuario'];
+    }
+
+    return $nombresPorClave;
 }
 
 function obtenerReporteRemisionesPorChofer(PDO $pdo, array $filtros): array
@@ -664,18 +775,7 @@ function obtenerMedicionSinClientePorVendedor(PDO $pdo, array $filtros): array
     );
     $stmt->execute($parametros);
 
-    $nombresPorClave = [];
-    $vendedores = $pdo->query(
-        "SELECT u.usuario, TRIM(CONCAT(ud.nombres, ' ', ud.apellido_p)) AS nombre
-         FROM tb_usuarios u
-         INNER JOIN tb_usuarios_detalle ud ON ud.id_usuario = u.id_usuario
-         INNER JOIN tb_roles r ON r.id_rol = ud.id_rol
-         WHERE r.rol IN ('VENDEDOR', 'VENDEDORES')"
-    )->fetchAll(PDO::FETCH_ASSOC);
-    foreach ($vendedores as $fila) {
-        $clave = preg_replace('/\s+/u', '', strtoupper((string) $fila['usuario']));
-        $nombresPorClave[$clave] = $fila['nombre'] !== '' ? $fila['nombre'] : $fila['usuario'];
-    }
+    $nombresPorClave = nombresVendedoresPorClave($pdo);
 
     $campos = ['total_remisiones', 'sin_cliente', 'pendientes', 'cliente_existia', 'alta_posterior'];
     $resultado = [];

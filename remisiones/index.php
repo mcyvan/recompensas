@@ -23,7 +23,7 @@ $puedeAdministrar = puedeAdministrarRemisiones();
 $puedeEliminarRemisiones = ($_SESSION['rol'] ?? '') === 'ADMINISTRADOR';
 $operadores = obtenerOperadores($pdo);
 $vendedores = obtenerVendedoresComercialesReporte($pdo);
-$filtrosReporte = filtrosReporteRemisiones($_GET);
+$filtrosReporte = filtrosReporteRemisiones($_GET, $pdo);
 $resumenReporte = obtenerResumenReporteRemisiones($pdo, $filtrosReporte);
 $reporteClientes = obtenerReporteRemisionesPorCliente($pdo, $filtrosReporte);
 $reporteVendedores = obtenerReporteRemisionesPorVendedor($pdo, $filtrosReporte);

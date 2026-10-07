@@ -6,7 +6,7 @@ require_once("../app/functions/remisiones.php");
 verificarSesion();
 verificarPermisoRemisiones();
 
-$filtros = filtrosReporteRemisiones($_GET);
+$filtros = filtrosReporteRemisiones($_GET, $pdo);
 $fechaArchivo = date('Ymd_His');
 $nombreArchivo = "reporte_remisiones_{$fechaArchivo}.csv";
 

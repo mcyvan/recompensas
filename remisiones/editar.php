@@ -32,6 +32,14 @@ if (!empty($remision['planta_crm']) && !in_array($remision['planta_crm'], $plant
     $plantasDisponibles[] = $remision['planta_crm'];
 }
 $csrf = $_SESSION['csrf_remisiones'];
+
+$vendedoresSistema = array_values(nombresVendedoresPorClave($pdo));
+sort($vendedoresSistema);
+$vendedorActual = '';
+if ($sinCliente && !empty($remision['vendedor_crm'])) {
+    $claveActual = preg_replace('/\s+/u', '', claveVendedorVenta((string) $remision['vendedor_crm']));
+    $vendedorActual = nombresVendedoresPorClave($pdo)[$claveActual] ?? '';
+}
 ?>
 <!doctype html>
 <html lang="es">
@@ -143,6 +151,20 @@ $csrf = $_SESSION['csrf_remisiones'];
                                             </select>
                                             <div class="form-text">Util cuando la remision se registro manualmente y no trae planta del QR.</div>
                                         </div>
+                                        <?php if ($sinCliente): ?>
+                                            <div class="col-md-4">
+                                                <label class="form-label"><b>Vendedor</b></label>
+                                                <select name="vendedor_crm" class="form-control">
+                                                    <option value="">Sin cambiar</option>
+                                                    <?php foreach ($vendedoresSistema as $nombreVendedor): ?>
+                                                        <option value="<?= htmlspecialchars($nombreVendedor, ENT_QUOTES, 'UTF-8') ?>" <?= $vendedorActual === $nombreVendedor ? 'selected' : '' ?>>
+                                                            <?= htmlspecialchars($nombreVendedor, ENT_QUOTES, 'UTF-8') ?>
+                                                        </option>
+                                                    <?php endforeach; ?>
+                                                </select>
+                                                <div class="form-text">Sirve para saber que vendedor aun no da de alta a este cliente. Cuando se ligue el cliente, manda el vendedor del cliente.</div>
+                                            </div>
+                                        <?php endif; ?>
                                     </div>
 
                                     <div class="row g-3 mt-1">

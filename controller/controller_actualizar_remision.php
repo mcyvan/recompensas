@@ -40,6 +40,7 @@ $horaInicioTexto = trim($_POST['hora_inicio'] ?? '');
 $horaFinTexto = trim($_POST['hora_fin'] ?? '');
 $plantaCrm = strtoupper(trim($_POST['planta_crm'] ?? ''));
 $plantaCrm = $plantaCrm !== '' ? $plantaCrm : null;
+$vendedorPosteado = strtoupper(trim($_POST['vendedor_crm'] ?? ''));
 
 try {
     if (!$idRemision) {
@@ -87,7 +88,7 @@ try {
 
     $stmt = $pdo->prepare(
         "SELECT id_remision, id_cliente, folio_remision, estatus, planta_crm, telefono,
-                id_operador, volumen, hora_inicio, hora_fin
+                vendedor_crm, id_operador, volumen, hora_inicio, hora_fin
          FROM tb_remisiones
          WHERE id_remision = ?
          FOR UPDATE"
@@ -138,6 +139,18 @@ try {
     $idCliente = $telefono !== '' ? (int) obtenerIdClienteTelefono($telefono) : null;
     $ligandoCliente = $idCliente !== null && empty($remisionActual['id_cliente']);
 
+    // Mientras la remision no tenga cliente, el vendedor se asigna a mano para
+    // poder filtrar y medir quien no esta dando de alta a sus clientes. Vacio =
+    // no cambiar; una vez ligada, manda el vendedor del cliente.
+    $vendedorCrmNuevo = $remisionActual['vendedor_crm'];
+    if ($vendedorPosteado !== '' && empty($remisionActual['id_cliente'])) {
+        $vendedoresValidos = array_map('strtoupper', array_values(nombresVendedoresPorClave($pdo)));
+        if (!in_array($vendedorPosteado, $vendedoresValidos, true)) {
+            throw new RuntimeException('Vendedor invalido.');
+        }
+        $vendedorCrmNuevo = $vendedorPosteado;
+    }
+
     $minutosColado = null;
     $puntosNuevos = null;
     $horaFinSql = null;
@@ -154,7 +167,7 @@ try {
         "UPDATE tb_remisiones
          SET id_cliente = ?, telefono = ?, id_operador = ?, folio_remision = ?,
              volumen = ?, hora_inicio = ?, hora_fin = ?, minutos_colado = ?,
-             puntos = ?, estatus = ?, planta_crm = ?
+             puntos = ?, estatus = ?, planta_crm = ?, vendedor_crm = ?
          WHERE id_remision = ?"
     );
     $stmt->execute([
@@ -169,6 +182,7 @@ try {
         $puntosNuevos,
         $estatus,
         $plantaCrm,
+        $vendedorCrmNuevo,
         $idRemision,
     ]);
 
@@ -193,6 +207,7 @@ try {
             'volumen' => $formatoBitacora($remisionActual['volumen']),
             'estatus' => $remisionActual['estatus'],
             'planta_crm' => $remisionActual['planta_crm'],
+            'vendedor_crm' => $remisionActual['vendedor_crm'],
             'hora_inicio' => substr((string) $remisionActual['hora_inicio'], 0, 16),
             'hora_fin' => $remisionActual['hora_fin'] ? substr((string) $remisionActual['hora_fin'], 0, 16) : null,
         ],
@@ -204,6 +219,7 @@ try {
             'volumen' => $formatoBitacora($volumen),
             'estatus' => $estatus,
             'planta_crm' => $plantaCrm,
+            'vendedor_crm' => $vendedorCrmNuevo,
             'hora_inicio' => $horaInicio->format('Y-m-d H:i'),
             'hora_fin' => $horaFin ? $horaFin->format('Y-m-d H:i') : null,
         ]

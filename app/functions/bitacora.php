@@ -130,6 +130,7 @@ function etiquetaCampoBitacora(string $entidad, string $campo): string
         'folio_remision' => 'Folio',
         'volumen' => 'Volumen',
         'planta_crm' => 'Planta',
+        'vendedor_crm' => 'Vendedor (sin cliente)',
         'hora_inicio' => 'Hora inicio',
         'hora_fin' => 'Hora fin',
     ];
