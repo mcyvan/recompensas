@@ -24,12 +24,24 @@ if ($tokenSesion === '' || !hash_equals($tokenSesion, $token)) {
 
 $telefono = preg_replace('/[^0-9]/', '', $_POST['telefono'] ?? '');
 $itemsRecibidos = json_decode($_POST['items'] ?? '', true);
+$documentoFolio = strtoupper(trim($_POST['documento_folio'] ?? ''));
 
 if (strlen($telefono) !== 10 || !is_array($itemsRecibidos) || !$itemsRecibidos) {
     $_SESSION['mensaje_canje_error'] = 'Los datos del canje no son validos.';
     header('Location: ' . $redireccion);
     exit;
 }
+
+if (!preg_match('/^[A-Z0-9][A-Z0-9 \-\/]{2,59}$/', $documentoFolio)) {
+    $_SESSION['mensaje_canje_error'] = 'Captura el folio de la venta o remision con la que se hace el canje (3 a 60 caracteres, solo letras, numeros, guion o diagonal).';
+    header('Location: ' . $redireccion);
+    exit;
+}
+
+// Hora de PHP (zona de la app), no NOW()/CURRENT_DATE de MySQL: el servidor de
+// base de datos puede tener otra zona horaria.
+$ahora = date('Y-m-d H:i:s');
+$hoy = date('Y-m-d');
 
 $cantidades = [];
 foreach ($itemsRecibidos as $item) {
@@ -100,16 +112,18 @@ try {
     $saldoDespues = round($saldoAntes - $totalPuntos, 2);
     $stmt = $pdo->prepare(
         "INSERT INTO tb_canjes
-            (folio, id_cliente, total_puntos, saldo_antes, saldo_despues, estatus, id_usuario, fecha_canje)
-         VALUES (?, ?, ?, ?, ?, 'CONFIRMADO', ?, NOW())"
+            (folio, id_cliente, documento_folio, total_puntos, saldo_antes, saldo_despues, estatus, id_usuario, fecha_canje)
+         VALUES (?, ?, ?, ?, ?, ?, 'CONFIRMADO', ?, ?)"
     );
     $stmt->execute([
         $folio,
         $idCliente,
+        $documentoFolio,
         $totalPuntos,
         $saldoAntes,
         $saldoDespues,
         (int) ($_SESSION['id_usuario_login'] ?? 0),
+        $ahora,
     ]);
     $idCanje = (int) $pdo->lastInsertId();
 
@@ -149,18 +163,18 @@ try {
          WHERE m.id_cliente = ?
            AND m.tipo IN ('ACUMULACION', 'AJUSTE')
            AND m.puntos > 0
-           AND (m.fecha_vencimiento IS NULL OR m.fecha_vencimiento >= CURRENT_DATE)
+           AND (m.fecha_vencimiento IS NULL OR m.fecha_vencimiento >= ?)
          ORDER BY COALESCE(m.fecha_vencimiento, '9999-12-31'), m.id_movimiento
          FOR UPDATE"
     );
-    $stmt->execute([$idCliente]);
+    $stmt->execute([$idCliente, $hoy]);
     $lotes = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     $restante = $totalPuntos;
     $stmtMovimiento = $pdo->prepare(
         "INSERT INTO tb_movimientos_puntos
             (id_cliente, id_remision, tipo, puntos, fecha_movimiento, fecha_vencimiento, observaciones)
-         VALUES (?, NULL, 'CANJE', ?, NOW(), ?, ?)"
+         VALUES (?, NULL, 'CANJE', ?, ?, ?, ?)"
     );
     $stmtAplicacion = $pdo->prepare(
         'INSERT INTO tb_canje_aplicaciones
@@ -177,6 +191,7 @@ try {
         $stmtMovimiento->execute([
             $idCliente,
             -$aplicar,
+            $ahora,
             $lote['fecha_vencimiento'],
             'Canje ' . $folio,
         ]);

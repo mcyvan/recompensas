@@ -1,6 +1,7 @@
 <?php
 include('../app/config/config.php');
 include("../app/functions/auth.php");
+include("../app/functions/bitacora.php");
 verificarSesion();
 
 $id_usuario = $_POST['id_usuario'];
@@ -38,8 +39,15 @@ if (!empty($password)) {
     $hashed_password = $usuario_data['password'];
 }
 
+$consulta_previa = $pdo->prepare("SELECT u.usuario, u.estatus, d.nombres, d.apellido_p, d.apellido_m, d.telefono, d.id_rol
+                                  FROM tb_usuarios u
+                                  LEFT JOIN tb_usuarios_detalle d ON d.id_usuario = u.id_usuario
+                                  WHERE u.id_usuario = :id_usuario");
+$consulta_previa->execute([':id_usuario' => $id_usuario]);
+$usuarioAnterior = $consulta_previa->fetch(PDO::FETCH_ASSOC) ?: [];
+
 // Preparar la consulta de actualización
-$consulta_actualizar = $pdo->prepare("UPDATE tb_usuarios SET                                        
+$consulta_actualizar = $pdo->prepare("UPDATE tb_usuarios SET
                                         usuario = :usuario,                                       
                                         password = :password,
                                         estatus = :estatus,
@@ -76,6 +84,23 @@ $consulta_actualizar->bindParam(':id_usuario', $id_usuario, PDO::PARAM_INT);
 
 // Ejecutar la consulta
 $consulta_actualizar->execute();
+
+$cambiosUsuario = [
+    'usuario' => $usuario,
+    'estatus' => $estatus,
+    'nombres' => $nombres,
+    'apellido_p' => $apellido_p,
+    'apellido_m' => $apellido_m,
+    'telefono' => $telefono,
+    'id_rol' => $id_rol,
+];
+$anteriorUsuario = $usuarioAnterior;
+if (!empty($password)) {
+    // Nunca se guarda la contrasena, solo el hecho de que fue cambiada.
+    $anteriorUsuario['contrasena'] = '';
+    $cambiosUsuario['contrasena'] = 'CAMBIADA';
+}
+registrarBitacoraCambios($pdo, 'USUARIO', (int) $id_usuario, 'ACTUALIZAR', $anteriorUsuario, $cambiosUsuario);
 
 $_SESSION['mensaje_actualizar_usuario_correcto'] = "Usuario actualizado correctamente";
 header('Location: ../usuarios/registrar_usuarios.php');

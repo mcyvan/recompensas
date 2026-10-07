@@ -87,12 +87,15 @@ try {
     $stmtMovimiento = $pdo->prepare(
         "INSERT INTO tb_movimientos_puntos
             (id_cliente, id_remision, tipo, puntos, fecha_movimiento, fecha_vencimiento, observaciones)
-         VALUES (?, NULL, 'AJUSTE', ?, NOW(), ?, ?)"
+         VALUES (?, NULL, 'AJUSTE', ?, ?, ?, ?)"
     );
+    // Hora de PHP (zona de la app), no NOW() de MySQL.
+    $ahora = date('Y-m-d H:i:s');
     foreach ($aplicaciones as $aplicacion) {
         $stmtMovimiento->execute([
             (int) $canje['id_cliente'],
             (float) $aplicacion['puntos_aplicados'],
+            $ahora,
             $aplicacion['fecha_vencimiento'],
             'Cancelacion canje ' . $canje['folio'],
         ]);
@@ -101,12 +104,13 @@ try {
     $stmt = $pdo->prepare(
         "UPDATE tb_canjes
          SET estatus = 'CANCELADO', motivo_cancelacion = ?,
-             id_usuario_cancelacion = ?, fecha_cancelacion = NOW()
+             id_usuario_cancelacion = ?, fecha_cancelacion = ?
          WHERE id_canje = ? AND estatus = 'CONFIRMADO'"
     );
     $stmt->execute([
         $motivo,
         (int) ($_SESSION['id_usuario_login'] ?? 0),
+        $ahora,
         $idCanje,
     ]);
 

@@ -142,7 +142,7 @@ $height = imagesy($source);
 // ===============================
 $nuevoAncho = 1000;
 
-$nuevoAlto = ($height / $width) * $nuevoAncho;
+$nuevoAlto = max(1, (int) round(($height / $width) * $nuevoAncho));
 
 $nuevaImagen = imagecreatetruecolor($nuevoAncho, $nuevoAlto);
 
