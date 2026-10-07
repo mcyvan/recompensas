@@ -29,9 +29,11 @@ function obtenerSaldoCliente(PDO $pdo, int $idCliente): float
         "SELECT COALESCE(SUM(puntos), 0)
          FROM tb_movimientos_puntos
          WHERE id_cliente = ?
-           AND (fecha_vencimiento IS NULL OR fecha_vencimiento >= CURRENT_DATE)"
+           AND (fecha_vencimiento IS NULL OR fecha_vencimiento >= ?)"
     );
-    $stmt->execute([$idCliente]);
+    // Fecha de PHP (zona de la app), no CURRENT_DATE: el servidor de base de
+    // datos puede tener otra zona horaria.
+    $stmt->execute([$idCliente, date('Y-m-d')]);
 
     return round((float) $stmt->fetchColumn(), 2);
 }
@@ -40,12 +42,13 @@ function obtenerSaldoCliente(PDO $pdo, int $idCliente): float
 // clientes) donde pedir el saldo uno por uno haria una consulta por fila.
 function obtenerSaldoPuntosTodosClientes(PDO $pdo): array
 {
-    $stmt = $pdo->query(
+    $stmt = $pdo->prepare(
         "SELECT id_cliente, COALESCE(SUM(puntos), 0) AS saldo
          FROM tb_movimientos_puntos
-         WHERE fecha_vencimiento IS NULL OR fecha_vencimiento >= CURRENT_DATE
+         WHERE fecha_vencimiento IS NULL OR fecha_vencimiento >= ?
          GROUP BY id_cliente"
     );
+    $stmt->execute([date('Y-m-d')]);
 
     $saldos = [];
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
@@ -87,7 +90,7 @@ function obtenerHistorialCanjesCliente(PDO $pdo, int $idCliente, int $limite = 1
 {
     $limite = max(1, min($limite, 50));
     $stmt = $pdo->prepare(
-        "SELECT id_canje, folio, total_puntos, saldo_despues, estatus, fecha_canje,
+        "SELECT id_canje, folio, documento_folio, total_puntos, saldo_despues, estatus, fecha_canje,
                 motivo_cancelacion, fecha_cancelacion
          FROM tb_canjes
          WHERE id_cliente = ?
@@ -131,6 +134,7 @@ function obtenerCanjesRegistrados(PDO $pdo, int $limite = 1000): array
         "SELECT
             cj.id_canje,
             cj.folio,
+            cj.documento_folio,
             cj.total_puntos,
             cj.saldo_antes,
             cj.saldo_despues,

@@ -124,6 +124,9 @@ unset($_SESSION['mensaje_canje_correcto'], $_SESSION['mensaje_canje_error'], $_S
                                         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_canjes']); ?>">
                                         <input type="hidden" name="telefono" id="telefonoCanje">
                                         <input type="hidden" name="items" id="itemsCanje">
+                                        <label for="documentoFolio" class="form-label mb-1"><b>Folio de venta o remision</b></label>
+                                        <input type="text" class="form-control mb-1" id="documentoFolio" name="documento_folio" maxlength="60" placeholder="Ej. RE141156" autocomplete="off" required>
+                                        <div class="form-text mb-3">Documento con el que se hace el canje.</div>
                                         <button type="submit" id="btnConfirmar" class="btn btn-success w-100" disabled>Confirmar canje</button>
                                     </form>
                                 </div>
@@ -146,6 +149,7 @@ unset($_SESSION['mensaje_canje_correcto'], $_SESSION['mensaje_canje_error'], $_S
                                             <th>Folio</th>
                                             <th>Cliente</th>
                                             <th>Telefono</th>
+                                            <th>Documento</th>
                                             <th>Premios</th>
                                             <th>Total puntos</th>
                                             <th>Saldo antes</th>
@@ -164,6 +168,7 @@ unset($_SESSION['mensaje_canje_correcto'], $_SESSION['mensaje_canje_error'], $_S
                                                 <td><?= htmlspecialchars($canje['folio'], ENT_QUOTES, 'UTF-8') ?></td>
                                                 <td><?= htmlspecialchars(trim($canje['nombres'] . ' ' . $canje['apellido_p'] . ' ' . $canje['apellido_m']), ENT_QUOTES, 'UTF-8') ?></td>
                                                 <td><?= htmlspecialchars($canje['telefono'], ENT_QUOTES, 'UTF-8') ?></td>
+                                                <td><?= $canje['documento_folio'] !== null && $canje['documento_folio'] !== '' ? '<b>' . htmlspecialchars($canje['documento_folio'], ENT_QUOTES, 'UTF-8') . '</b>' : '<span class="text-muted">-</span>' ?></td>
                                                 <td>
                                                     <?php foreach ($canje['detalles'] as $detalle): ?>
                                                         <div>
@@ -217,7 +222,7 @@ unset($_SESSION['mensaje_canje_correcto'], $_SESSION['mensaje_canje_error'], $_S
     const escapar = valor => String(valor ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;'}[c]));
 
     $('#tablaCanjes').DataTable({
-        order: [[8, 'desc']],
+        order: [[9, 'desc']],
         pageLength: 25,
         language: {
             url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json'
@@ -365,6 +370,7 @@ unset($_SESSION['mensaje_canje_correcto'], $_SESSION['mensaje_canje_error'], $_S
         }
         contenedor.innerHTML = historial.map(canje => `<div class="border rounded p-3 mb-2">
             <div class="d-flex flex-wrap justify-content-between"><b>${escapar(canje.folio)}</b><span>${escapar(canje.fecha_canje)}</span></div>
+            ${canje.documento_folio ? `<div class="small text-muted"><b>Documento:</b> ${escapar(canje.documento_folio)}</div>` : ''}
             <div>${canje.detalles.map(d => `${Number(d.cantidad)} x ${escapar(d.premio)}`).join('<br>')}</div>
             <div class="mt-1"><b>Total:</b> ${dinero(canje.total_puntos)} puntos | <b>Saldo posterior:</b> ${dinero(canje.saldo_despues)}</div>
             <div class="mt-1"><b>Estatus:</b> <span class="badge ${canje.estatus === 'CANCELADO' ? 'text-bg-danger' : 'text-bg-success'}">${escapar(canje.estatus)}</span></div>
