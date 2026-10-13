@@ -280,8 +280,14 @@ if ($tabActivo === 'produccion') {
                                                 </td>
                                                 <td><?= number_format((float) $remision['volumen'], 2) ?> m&sup3;</td>
                                                 <td>
-                                                    <?php if (!empty($remision['qr_origen'])): ?>
+                                                    <?php if (!empty($remision['qr_origen']) || !empty($remision['cliente_crm']) || !empty($remision['vendedor_crm'])): ?>
                                                         <div class="small">
+                                                            <?php if (!empty($remision['cliente_crm'])): ?>
+                                                                <div><b>Cliente:</b> <?= htmlspecialchars($remision['cliente_crm'], ENT_QUOTES, 'UTF-8') ?></div>
+                                                            <?php endif; ?>
+                                                            <?php if (!empty($remision['vendedor_crm'])): ?>
+                                                                <div><b>Vendedor:</b> <?= htmlspecialchars($remision['vendedor_crm'], ENT_QUOTES, 'UTF-8') ?></div>
+                                                            <?php endif; ?>
                                                             <?php if (!empty($remision['factura_crm'])): ?>
                                                                 <div><b>Factura:</b> <?= htmlspecialchars($remision['factura_crm'], ENT_QUOTES, 'UTF-8') ?></div>
                                                             <?php endif; ?>
