@@ -523,7 +523,21 @@ function obtenerResumenReporteRemisiones(PDO $pdo, array $filtros): array
     );
     $stmt->execute($parametros);
 
-    return $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    $resumen = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+
+    // El SQL cuenta etiquetas distintas, y una misma persona puede venir escrita
+    // distinto ("Samuel Torres" / "Samuel Torres Cardona"). Se cuenta con la
+    // misma union de la tabla "Por vendedor", solo vendedores del sistema (sin
+    // "Sin vendedor" ni nombres como AMERICAS o MOSTRADOR).
+    if ($resumen) {
+        $usuariosVendedor = array_flip(array_values(nombresVendedoresPorClave($pdo)));
+        $resumen['total_vendedores'] = count(array_filter(
+            obtenerReporteRemisionesPorVendedor($pdo, $filtros),
+            static fn($fila) => isset($usuariosVendedor[$fila['vendedor']])
+        ));
+    }
+
+    return $resumen;
 }
 
 function obtenerReporteRemisionesPorCliente(PDO $pdo, array $filtros, int $limite = 200): array
