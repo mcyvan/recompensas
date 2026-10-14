@@ -24,6 +24,35 @@ $clientes = ($esAdministracion || $esLogistica)
 
 $vendedores = $puedeElegirVendedorCliente ? obtenerVendedores() : [];
 $saldosPuntosClientes = $puedeVerClientes ? obtenerSaldoPuntosTodosClientes($pdo) : [];
+
+// Credenciales impresas vs. clientes activos de cada vendedor (usuario del que
+// depende el cliente), para las tarjetas de arriba de la tabla.
+$credencialesPorVendedor = [];
+if ($esAdministracion || $esLogistica) {
+    require_once('../app/functions/remisiones.php');
+    $nombresVendedores = nombresVendedoresPorClave($pdo);
+    foreach ($clientes as $clienteTarjeta) {
+        if ((int) $clienteTarjeta['estatus'] !== 1) {
+            continue;
+        }
+        $usuarioVendedor = (string) ($clienteTarjeta['usuario'] ?? '');
+        $claveVendedor = preg_replace('/\s+/u', '', strtoupper($usuarioVendedor));
+        if (!isset($credencialesPorVendedor[$usuarioVendedor])) {
+            $credencialesPorVendedor[$usuarioVendedor] = [
+                'vendedor' => $nombresVendedores[$claveVendedor] ?? $usuarioVendedor,
+                'total' => 0,
+                'impresas' => 0,
+            ];
+        }
+        $credencialesPorVendedor[$usuarioVendedor]['total']++;
+        if (!empty($clienteTarjeta['credencial_impresa_fecha'])) {
+            $credencialesPorVendedor[$usuarioVendedor]['impresas']++;
+        }
+    }
+    uasort($credencialesPorVendedor, static fn($a, $b) => $b['total'] <=> $a['total'] ?: strcmp($a['vendedor'], $b['vendedor']));
+    $totalCredencialesImpresas = array_sum(array_column($credencialesPorVendedor, 'impresas'));
+    $totalCredencialesClientes = array_sum(array_column($credencialesPorVendedor, 'total'));
+}
 $mostrarDashboardClientes = $esAdministracion || $esLogistica;
 $resumenDashboardClientes = $mostrarDashboardClientes ? obtenerResumenDashboardClientes() : [];
 $dashboardClientesPorVendedor = $mostrarDashboardClientes ? obtenerDashboardClientesPorVendedor() : [];
@@ -443,6 +472,29 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
                                     <div class="tab-content">
                                         <?php if (!$vistaDashboardClientes): ?>
                                         <div class="tab-pane fade show active" id="panel-clientes" role="tabpanel" aria-labelledby="tab-clientes">
+                                    <?php if ($credencialesPorVendedor): ?>
+                                        <div class="row g-3 mb-3 px-2 pt-2">
+                                            <?php
+                                            $tarjetasCredenciales = array_merge(
+                                                [['vendedor' => 'TOTAL', 'total' => $totalCredencialesClientes, 'impresas' => $totalCredencialesImpresas, 'esTotal' => true]],
+                                                array_values($credencialesPorVendedor)
+                                            );
+                                            foreach ($tarjetasCredenciales as $tarjeta):
+                                                $pctImpresas = $tarjeta['total'] > 0 ? $tarjeta['impresas'] * 100 / $tarjeta['total'] : 0;
+                                                $claseTarjeta = !empty($tarjeta['esTotal']) ? '' : ($pctImpresas >= 80 ? 'success' : ($pctImpresas >= 40 ? 'warning' : 'danger'));
+                                                $colorBarra = $claseTarjeta === 'success' ? 'success' : ($claseTarjeta === 'warning' ? 'warning' : ($claseTarjeta === 'danger' ? 'danger' : 'primary'));
+                                            ?>
+                                                <div class="col-sm-6 col-lg-4 col-xl-3">
+                                                    <div class="dashboard-clientes-metric <?= $claseTarjeta ?>">
+                                                        <div class="label"><b><?= htmlspecialchars($tarjeta['vendedor'], ENT_QUOTES, 'UTF-8') ?></b></div>
+                                                        <div class="value"><?= number_format($tarjeta['impresas']) ?> <span class="fs-6 fw-normal text-muted">de <?= number_format($tarjeta['total']) ?> impresas</span></div>
+                                                        <div class="progress mt-2" style="height:8px"><div class="progress-bar bg-<?= $colorBarra ?>" style="width:<?= min(100, max(0, $pctImpresas)) ?>%"></div></div>
+                                                        <div class="label mt-1"><?= number_format($pctImpresas, 1) ?>%</div>
+                                                    </div>
+                                                </div>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    <?php endif; ?>
                                     <div class="table-responsive">
                                         <table id="tablaClientes" class="table table-striped table-bordered" style="width:100%">
                                             <thead>
