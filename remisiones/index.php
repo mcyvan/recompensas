@@ -8,6 +8,10 @@ require_once("../app/functions/produccion_planta.php");
 verificarSesion();
 verificarPermisoRemisiones();
 
+// ADMIN CANJE solo consulta la lista de remisiones (para ubicar folios del
+// canje); reportes, graficas y produccion son para administracion.
+$soloListado = ($_SESSION['rol'] ?? '') === 'ADMIN CANJE';
+
 if (empty($_SESSION['csrf_remisiones'])) {
     $_SESSION['csrf_remisiones'] = bin2hex(random_bytes(32));
 }
@@ -40,7 +44,7 @@ try {
 $totalSinCliente = array_sum(array_column($sinClienteChoferes, 'sin_cliente'));
 $totalPendientesSinCliente = array_sum(array_column($sinClienteChoferes, 'pendientes'));
 $tabSolicitado = (string) ($_GET['tab'] ?? '');
-$tabActivo = in_array($tabSolicitado, ['reportes', 'conciliacion', 'produccion'], true) ? $tabSolicitado : 'remisiones';
+$tabActivo = (!$soloListado && in_array($tabSolicitado, ['reportes', 'conciliacion', 'produccion'], true)) ? $tabSolicitado : 'remisiones';
 
 if ($tabActivo === 'conciliacion') {
     $filtrosConciliacion = filtrosConciliacionVentas($pdo, [
@@ -187,6 +191,7 @@ if ($tabActivo === 'produccion') {
                                         Remisiones
                                     </a>
                                 </li>
+                                <?php if (!$soloListado): ?>
                                 <li class="nav-item" role="presentation">
                                     <a class="nav-link <?= $tabActivo === 'reportes' ? 'active' : '' ?>" id="tab-reportes" href="index.php?tab=reportes" role="tab">
                                         Reportes
@@ -202,6 +207,7 @@ if ($tabActivo === 'produccion') {
                                         Produccion
                                     </a>
                                 </li>
+                                <?php endif; ?>
                             </ul>
                         </div>
                         <div class="card-body">
@@ -377,6 +383,7 @@ if ($tabActivo === 'produccion') {
                                     </div>
                                 </div>
 
+                                <?php if (!$soloListado): ?>
                                 <div class="tab-pane fade <?= $tabActivo === 'reportes' ? 'show active' : '' ?>" id="panel-reportes" role="tabpanel" aria-labelledby="tab-reportes" <?= $tabActivo !== 'reportes' ? 'hidden' : '' ?>>
                                     <form class="row g-3 align-items-end mb-3" method="GET" action="index.php">
                                         <input type="hidden" name="tab" value="reportes">
@@ -702,6 +709,7 @@ if ($tabActivo === 'produccion') {
                                 <div class="tab-pane fade <?= $tabActivo === 'produccion' ? 'show active' : '' ?>" id="panel-produccion" role="tabpanel" aria-labelledby="tab-produccion" <?= $tabActivo !== 'produccion' ? 'hidden' : '' ?>>
                                     <?php if ($tabActivo === 'produccion') { include __DIR__ . '/../conciliacion/produccion_panel.php'; } ?>
                                 </div>
+                                <?php endif; ?>
                             </div>
                         </div>
                     </div>

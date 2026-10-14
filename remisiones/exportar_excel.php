@@ -6,6 +6,12 @@ require_once("../app/functions/remisiones.php");
 verificarSesion();
 verificarPermisoRemisiones();
 
+// El Excel es el de los reportes; ADMIN CANJE solo consulta la lista.
+if (($_SESSION['rol'] ?? '') === 'ADMIN CANJE') {
+    http_response_code(403);
+    exit('No tienes permiso para exportar los reportes.');
+}
+
 $filtros = filtrosReporteRemisiones($_GET, $pdo);
 $fechaArchivo = date('Ymd_His');
 $nombreArchivo = "reporte_remisiones_{$fechaArchivo}.csv";
