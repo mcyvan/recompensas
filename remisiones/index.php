@@ -20,31 +20,44 @@ $mensajeCorrecto = $_SESSION['mensaje_remision_correcto'] ?? null;
 $mensajeError = $_SESSION['mensaje_remision_error'] ?? null;
 unset($_SESSION['mensaje_remision_correcto'], $_SESSION['mensaje_remision_error']);
 
+$tabSolicitado = (string) ($_GET['tab'] ?? '');
+$tabActivo = (!$soloListado && in_array($tabSolicitado, ['reportes', 'conciliacion', 'produccion', 'chofer'], true)) ? $tabSolicitado : 'remisiones';
+
+// Cada pestana calcula solo lo suyo: antes se corrian todas las consultas en cada
+// carga y cambiar de pestana o de fecha tardaba varios segundos.
 $filtrosListado = filtrosListadoRemisiones($_GET);
-$remisiones = obtenerRemisiones($pdo, $filtrosListado);
+$remisiones = $tabActivo === 'remisiones' ? obtenerRemisiones($pdo, $filtrosListado) : [];
 $csrf = $_SESSION['csrf_remisiones'];
 $puedeAdministrar = puedeAdministrarRemisiones();
 $puedeEliminarRemisiones = ($_SESSION['rol'] ?? '') === 'ADMINISTRADOR';
-$operadores = obtenerOperadores($pdo);
-$vendedores = obtenerVendedoresComercialesReporte($pdo);
 $filtrosReporte = filtrosReporteRemisiones($_GET, $pdo);
-$resumenReporte = obtenerResumenReporteRemisiones($pdo, $filtrosReporte);
-$reporteClientes = obtenerReporteRemisionesPorCliente($pdo, $filtrosReporte);
-$reporteVendedores = obtenerReporteRemisionesPorVendedor($pdo, $filtrosReporte);
-$reporteChoferes = obtenerReporteRemisionesPorChofer($pdo, $filtrosReporte);
-$reporteDias = obtenerReporteRemisionesPorDia($pdo, $filtrosReporte);
-try {
-    $sinClienteChoferes = obtenerMedicionSinClientePorChofer($pdo, $filtrosReporte);
-    $sinClienteVendedores = obtenerMedicionSinClientePorVendedor($pdo, $filtrosReporte);
-} catch (PDOException $e) {
-    error_log($e->getMessage());
-    $sinClienteChoferes = [];
-    $sinClienteVendedores = [];
+$operadores = [];
+$vendedores = [];
+$resumenReporte = [];
+$reporteClientes = [];
+$reporteVendedores = [];
+$reporteChoferes = [];
+$reporteDias = [];
+$sinClienteChoferes = [];
+$sinClienteVendedores = [];
+
+if ($tabActivo === 'reportes') {
+    $operadores = obtenerOperadores($pdo);
+    $vendedores = obtenerVendedoresComercialesReporte($pdo);
+    $resumenReporte = obtenerResumenReporteRemisiones($pdo, $filtrosReporte);
+    $reporteClientes = obtenerReporteRemisionesPorCliente($pdo, $filtrosReporte);
+    $reporteVendedores = obtenerReporteRemisionesPorVendedor($pdo, $filtrosReporte);
+    $reporteChoferes = obtenerReporteRemisionesPorChofer($pdo, $filtrosReporte);
+    $reporteDias = obtenerReporteRemisionesPorDia($pdo, $filtrosReporte);
+    try {
+        $sinClienteChoferes = obtenerMedicionSinClientePorChofer($pdo, $filtrosReporte);
+        $sinClienteVendedores = obtenerMedicionSinClientePorVendedor($pdo, $filtrosReporte);
+    } catch (PDOException $e) {
+        error_log($e->getMessage());
+    }
 }
 $totalSinCliente = array_sum(array_column($sinClienteChoferes, 'sin_cliente'));
 $totalPendientesSinCliente = array_sum(array_column($sinClienteChoferes, 'pendientes'));
-$tabSolicitado = (string) ($_GET['tab'] ?? '');
-$tabActivo = (!$soloListado && in_array($tabSolicitado, ['reportes', 'conciliacion', 'produccion'], true)) ? $tabSolicitado : 'remisiones';
 
 if ($tabActivo === 'conciliacion') {
     $filtrosConciliacion = filtrosConciliacionVentas($pdo, [
@@ -53,10 +66,10 @@ if ($tabActivo === 'conciliacion') {
         'planta' => $_GET['conc_planta'] ?? '',
     ]);
     $plantasConciliacion = obtenerPlantasConciliacion($pdo);
-    $resumenConciliacion = obtenerResumenConciliacion($pdo, $filtrosConciliacion);
-    $porDiaConciliacion = obtenerConciliacionPorDia($pdo, $filtrosConciliacion);
     $porVendedorConciliacion = obtenerConciliacionPorVendedor($pdo, $filtrosConciliacion);
     $detalleConciliacion = obtenerDetalleConciliacion($pdo, $filtrosConciliacion);
+    // El resumen y el desglose por dia salen del mismo detalle (una consulta menos).
+    [$resumenConciliacion, $porDiaConciliacion] = derivarResumenYDiasConciliacion($detalleConciliacion);
     $estadoConciliacion = strtolower(trim((string) ($_GET['conc_estado'] ?? 'todos')));
     if (!in_array($estadoConciliacion, ['todos', 'registradas', 'faltantes'], true)) {
         $estadoConciliacion = 'todos';
@@ -91,6 +104,35 @@ if ($tabActivo === 'produccion') {
     $faltantesOperadorProduccion = $operadorProduccionSeleccionado !== '' && !$errorProduccion
         ? obtenerFoliosFaltantesOperador($pdo, $operadorProduccionSeleccionado, $filtrosProduccion)
         : [];
+}
+
+if ($tabActivo === 'chofer') {
+    $filtrosChofer = filtrosProduccionPlanta([
+        'fecha_inicio' => $_GET['chofer_fecha_inicio'] ?? '',
+        'fecha_fin' => $_GET['chofer_fecha_fin'] ?? '',
+        'planta' => $_GET['chofer_planta'] ?? '',
+    ]);
+    $choferSeleccionado = trim((string) ($_GET['chofer_operador'] ?? ''));
+    $operadoresProduccion = [];
+    $diasChofer = [];
+    $faltantesChofer = [];
+    $topChoferes = [];
+
+    try {
+        $topChoferes = obtenerTopChoferesPorPlanta(obtenerProduccionPorOperador($pdo, $filtrosChofer));
+        $operadoresProduccion = obtenerOperadoresProduccion($pdo);
+        if (!in_array($choferSeleccionado, $operadoresProduccion, true)) {
+            $choferSeleccionado = '';
+        }
+        if ($choferSeleccionado !== '') {
+            $diasChofer = obtenerProduccionOperadorPorDia($pdo, $choferSeleccionado, $filtrosChofer);
+            $faltantesChofer = obtenerFoliosFaltantesOperador($pdo, $choferSeleccionado, $filtrosChofer);
+        }
+        $errorChofer = false;
+    } catch (PDOException $e) {
+        error_log($e->getMessage());
+        $errorChofer = true;
+    }
 }
 ?>
 <!doctype html>
@@ -205,6 +247,11 @@ if ($tabActivo === 'produccion') {
                                 <li class="nav-item" role="presentation">
                                     <a class="nav-link <?= $tabActivo === 'produccion' ? 'active' : '' ?>" id="tab-produccion" href="index.php?tab=produccion" role="tab">
                                         Produccion
+                                    </a>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <a class="nav-link <?= $tabActivo === 'chofer' ? 'active' : '' ?>" id="tab-chofer" href="index.php?tab=chofer" role="tab">
+                                        Chofer por dia
                                     </a>
                                 </li>
                                 <?php endif; ?>
@@ -708,6 +755,9 @@ if ($tabActivo === 'produccion') {
                                 </div>
                                 <div class="tab-pane fade <?= $tabActivo === 'produccion' ? 'show active' : '' ?>" id="panel-produccion" role="tabpanel" aria-labelledby="tab-produccion" <?= $tabActivo !== 'produccion' ? 'hidden' : '' ?>>
                                     <?php if ($tabActivo === 'produccion') { include __DIR__ . '/../conciliacion/produccion_panel.php'; } ?>
+                                </div>
+                                <div class="tab-pane fade <?= $tabActivo === 'chofer' ? 'show active' : '' ?>" id="panel-chofer" role="tabpanel" aria-labelledby="tab-chofer" <?= $tabActivo !== 'chofer' ? 'hidden' : '' ?>>
+                                    <?php if ($tabActivo === 'chofer') { include __DIR__ . '/../conciliacion/chofer_dia_panel.php'; } ?>
                                 </div>
                                 <?php endif; ?>
                             </div>

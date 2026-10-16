@@ -261,9 +261,12 @@ function obtenerProduccionPorOperador(PDO $pdo, array $filtros): array
             p.planta,
             p.operador,
             COUNT(*) AS remisiones_esperadas,
-            SUM(CASE WHEN r.id_remision IS NOT NULL AND r.estatus <> 'CANCELADO' THEN 1 ELSE 0 END) AS remisiones_registradas
+            SUM(CASE WHEN rr.folio IS NOT NULL THEN 1 ELSE 0 END) AS remisiones_registradas
          FROM tb_produccion_planta p
-         LEFT JOIN tb_remisiones r ON r.folio_remision = p.folio_remision
+         LEFT JOIN (
+             SELECT DISTINCT CONVERT(folio_remision USING utf8mb4) COLLATE utf8mb4_general_ci AS folio
+             FROM tb_remisiones WHERE estatus <> 'CANCELADO'
+         ) rr ON rr.folio = p.folio_remision
          WHERE p.fecha BETWEEN ? AND ?
            AND (? = '' OR p.planta = ?)
            AND p.operador NOT LIKE '%BACHA%'
@@ -277,6 +280,96 @@ function obtenerProduccionPorOperador(PDO $pdo, array $filtros): array
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
+// Los mejores choferes de cada planta: mayor % de remisiones capturadas sobre las
+// que debieron capturar. Solo cuentan los que tienen al menos $minimoRemisiones en
+// la bitacora del periodo, para que quien tuvo 1 remision no salga con 100%.
+// Recibe lo que regresa obtenerProduccionPorOperador(). Devuelve planta => filas.
+function obtenerTopChoferesPorPlanta(array $porOperador, int $limite = 4, int $minimoRemisiones = 10): array
+{
+    $porPlanta = [];
+    foreach ($porOperador as $fila) {
+        $esperadas = (int) $fila['remisiones_esperadas'];
+        if ($esperadas < $minimoRemisiones) {
+            continue;
+        }
+        $registradas = (int) $fila['remisiones_registradas'];
+        $porPlanta[$fila['planta']][] = [
+            'operador' => $fila['operador'],
+            'esperadas' => $esperadas,
+            'registradas' => $registradas,
+            'porcentaje' => $registradas * 100 / $esperadas,
+        ];
+    }
+
+    foreach ($porPlanta as $planta => $choferes) {
+        usort($choferes, static fn($a, $b) => [$b['porcentaje'], $b['registradas'], $a['operador']] <=> [$a['porcentaje'], $a['registradas'], $b['operador']]);
+        $porPlanta[$planta] = array_slice($choferes, 0, $limite);
+    }
+    ksort($porPlanta);
+
+    return $porPlanta;
+}
+
+// Operadores que aparecen en la bitacora del dosificador (para el selector).
+function obtenerOperadoresProduccion(PDO $pdo): array
+{
+    $stmt = $pdo->query(
+        "SELECT DISTINCT operador
+         FROM tb_produccion_planta
+         WHERE operador IS NOT NULL AND TRIM(operador) <> ''
+           AND operador NOT LIKE '%BACHA%' AND operador NOT LIKE '%OLLA%'
+         ORDER BY operador"
+    );
+
+    return array_map('strval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+}
+
+// Dia por dia de un operador: cuantas remisiones debio meter (bitacora del
+// dosificador) y cuantas de esas ya estan capturadas. Incluye todos los dias del
+// periodo, tambien los de 0, para que la grafica sea continua.
+function obtenerProduccionOperadorPorDia(PDO $pdo, string $operador, array $filtros): array
+{
+    $stmt = $pdo->prepare(
+        "SELECT p.fecha,
+                COUNT(*) AS esperadas,
+                SUM(CASE WHEN rr.folio IS NOT NULL THEN 1 ELSE 0 END) AS registradas
+         FROM tb_produccion_planta p
+         LEFT JOIN (
+             SELECT DISTINCT CONVERT(folio_remision USING utf8mb4) COLLATE utf8mb4_general_ci AS folio
+             FROM tb_remisiones WHERE estatus <> 'CANCELADO'
+         ) rr ON rr.folio = p.folio_remision
+         WHERE p.operador = ?
+           AND p.fecha BETWEEN ? AND ?
+           AND (? = '' OR p.planta = ?)
+         GROUP BY p.fecha"
+    );
+    $stmt->execute([$operador, $filtros['fecha_inicio'], $filtros['fecha_fin'], $filtros['planta'], $filtros['planta']]);
+    $porFecha = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+        $porFecha[$fila['fecha']] = ['esperadas' => (int) $fila['esperadas'], 'registradas' => (int) $fila['registradas']];
+    }
+
+    $dias = [];
+    $nombresDia = ['dom', 'lun', 'mar', 'mie', 'jue', 'vie', 'sab'];
+    $cursor = new DateTimeImmutable($filtros['fecha_inicio']);
+    $fin = new DateTimeImmutable($filtros['fecha_fin']);
+    while ($cursor <= $fin) {
+        $fecha = $cursor->format('Y-m-d');
+        $esperadas = $porFecha[$fecha]['esperadas'] ?? 0;
+        $registradas = $porFecha[$fecha]['registradas'] ?? 0;
+        $dias[] = [
+            'fecha' => $fecha,
+            'dia' => $nombresDia[(int) $cursor->format('w')],
+            'esperadas' => $esperadas,
+            'registradas' => $registradas,
+            'faltantes' => $esperadas - $registradas,
+        ];
+        $cursor = $cursor->modify('+1 day');
+    }
+
+    return $dias;
+}
+
 // Folios especificos que un operador dejo de meter, para poder darle
 // seguimiento puntual.
 function obtenerFoliosFaltantesOperador(PDO $pdo, string $operador, array $filtros): array
@@ -284,11 +377,14 @@ function obtenerFoliosFaltantesOperador(PDO $pdo, string $operador, array $filtr
     $stmt = $pdo->prepare(
         "SELECT p.planta, p.fecha, p.folio_remision, p.volumen, p.direccion
          FROM tb_produccion_planta p
-         LEFT JOIN tb_remisiones r ON r.folio_remision = p.folio_remision AND r.estatus <> 'CANCELADO'
+         LEFT JOIN (
+             SELECT DISTINCT CONVERT(folio_remision USING utf8mb4) COLLATE utf8mb4_general_ci AS folio
+             FROM tb_remisiones WHERE estatus <> 'CANCELADO'
+         ) rr ON rr.folio = p.folio_remision
          WHERE p.operador = ?
            AND p.fecha BETWEEN ? AND ?
            AND (? = '' OR p.planta = ?)
-           AND r.id_remision IS NULL
+           AND rr.folio IS NULL
          ORDER BY p.fecha DESC, p.folio_remision"
     );
     $stmt->execute([$operador, $filtros['fecha_inicio'], $filtros['fecha_fin'], $filtros['planta'], $filtros['planta']]);
