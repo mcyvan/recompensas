@@ -14,6 +14,8 @@ date_default_timezone_set('America/Chihuahua');
 // VALIDAR DATOS
 // ===============================
 $premio             = strtoupper(trim($_POST['premio'] ?? ''));
+$codigo             = strtoupper(trim($_POST['codigo'] ?? ''));
+$codigo             = $codigo !== '' ? mb_substr($codigo, 0, 50) : null;
 $descripcion        = strtoupper(trim($_POST['descripcion'] ?? ''));
 $puntos_requeridos  = strtoupper(intval($_POST['puntos_requeridos'] ?? 0));
 $stock              = strtoupper(intval($_POST['stock'] ?? 0));
@@ -142,7 +144,7 @@ $height = imagesy($source);
 // ===============================
 $nuevoAncho = 1000;
 
-$nuevoAlto = ($height / $width) * $nuevoAncho;
+$nuevoAlto = max(1, (int) round(($height / $width) * $nuevoAncho));
 
 $nuevaImagen = imagecreatetruecolor($nuevoAncho, $nuevoAlto);
 
@@ -200,6 +202,7 @@ try {
         INSERT INTO tb_premios
         (
             premio,
+            codigo,
             descripcion,
             puntos_requeridos,
             stock,
@@ -210,12 +213,13 @@ try {
         )
         VALUES
         (
-            ?, ?, ?, ?, ?, ?, ?, NOW()
+            ?, ?, ?, ?, ?, ?, ?, ?, NOW()
         )
     ");
 
     $stmt->execute([
         $premio,
+        $codigo,
         $descripcion,
         $puntos_requeridos,
         $stock,

@@ -14,6 +14,8 @@ $mensajeCorrecto = $_SESSION['mensaje_canje_correcto'] ?? null;
 $mensajeError = $_SESSION['mensaje_canje_error'] ?? null;
 $canjeRealizado = $_SESSION['canje_realizado'] ?? null;
 $puedeAdministrarCanjes = puedeAdministrarCanjes();
+$canjesRegistrados = obtenerCanjesRegistrados($pdo);
+$tabActivo = ($_GET['tab'] ?? '') === 'listado' ? 'listado' : 'registro';
 unset($_SESSION['mensaje_canje_correcto'], $_SESSION['mensaje_canje_error'], $_SESSION['canje_realizado']);
 ?>
 <!doctype html>
@@ -62,6 +64,11 @@ unset($_SESSION['mensaje_canje_correcto'], $_SESSION['mensaje_canje_error'], $_S
                         <?php if ($canjeRealizado): ?>
                             <div><b>Folio:</b> <?php echo htmlspecialchars($canjeRealizado['folio']); ?></div>
                             <div><b>Saldo restante:</b> <?php echo number_format((float) $canjeRealizado['saldo_despues'], 2); ?> puntos</div>
+                            <?php if (!empty($canjeRealizado['id_canje'])): ?>
+                                <a href="ticket.php?id=<?= (int) $canjeRealizado['id_canje'] ?>&imprimir=1" target="_blank" rel="noopener" class="btn btn-success btn-sm mt-2">
+                                    <i class="bi bi-receipt"></i> Imprimir recibo
+                                </a>
+                            <?php endif; ?>
                         <?php endif; ?>
                     </div>
                 <?php endif; ?>
@@ -70,20 +77,33 @@ unset($_SESSION['mensaje_canje_correcto'], $_SESSION['mensaje_canje_error'], $_S
                 <?php endif; ?>
 
                 <div class="card card-primary card-outline mb-4">
-                    <div class="card-header"><b>1. Buscar cliente</b></div>
-                    <div class="card-body">
-                        <div class="row g-2">
-                            <div class="col-md-5">
-                                <input type="tel" id="telefono" class="form-control form-control-lg" maxlength="10" inputmode="numeric" placeholder="Numero celular de 10 digitos">
-                            </div>
-                            <div class="col-md-3">
-                                <button type="button" id="btnBuscar" class="btn btn-primary btn-lg w-100">Consultar</button>
-                            </div>
-                        </div>
+                    <div class="card-header">
+                        <ul class="nav nav-tabs card-header-tabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link <?= $tabActivo === 'registro' ? 'active' : '' ?>" id="tab-registro" data-bs-toggle="tab" data-bs-target="#panel-registro" type="button" role="tab">
+                                    Registrar canje
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link <?= $tabActivo === 'listado' ? 'active' : '' ?>" id="tab-listado" data-bs-toggle="tab" data-bs-target="#panel-listado" type="button" role="tab">
+                                    Canjes realizados
+                                </button>
+                            </li>
+                        </ul>
                     </div>
-                </div>
+                    <div class="card-body tab-content">
+                        <div class="tab-pane fade <?= $tabActivo === 'registro' ? 'show active' : '' ?>" id="panel-registro" role="tabpanel" aria-labelledby="tab-registro">
+                            <h5 class="mb-3">1. Buscar cliente</h5>
+                            <div class="row g-2">
+                                <div class="col-md-5">
+                                    <input type="tel" id="telefono" class="form-control form-control-lg" maxlength="10" inputmode="numeric" placeholder="Numero celular de 10 digitos">
+                                </div>
+                                <div class="col-md-3">
+                                    <button type="button" id="btnBuscar" class="btn btn-primary btn-lg w-100">Consultar</button>
+                                </div>
+                            </div>
 
-                <div id="contenidoCanje" class="d-none">
+                <div id="contenidoCanje" class="d-none mt-3">
                     <div class="alert alert-info d-flex flex-wrap justify-content-between gap-2">
                         <div><b>Cliente:</b> <span id="clienteNombre"></span></div>
                         <div><b>Puntos disponibles:</b> <span id="clienteSaldo">0</span></div>
@@ -109,6 +129,9 @@ unset($_SESSION['mensaje_canje_correcto'], $_SESSION['mensaje_canje_error'], $_S
                                         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_canjes']); ?>">
                                         <input type="hidden" name="telefono" id="telefonoCanje">
                                         <input type="hidden" name="items" id="itemsCanje">
+                                        <label for="documentoFolio" class="form-label mb-1"><b>Folio de venta o remision</b></label>
+                                        <input type="text" class="form-control mb-1" id="documentoFolio" name="documento_folio" maxlength="60" placeholder="Ej. RE141156" autocomplete="off" required>
+                                        <div class="form-text mb-3">Documento con el que se hace el canje.</div>
                                         <button type="submit" id="btnConfirmar" class="btn btn-success w-100" disabled>Confirmar canje</button>
                                     </form>
                                 </div>
@@ -119,6 +142,80 @@ unset($_SESSION['mensaje_canje_correcto'], $_SESSION['mensaje_canje_error'], $_S
                     <div class="card mt-3 mb-4">
                         <div class="card-header"><b>Historial del cliente</b></div>
                         <div class="card-body" id="historialCanjes"></div>
+                    </div>
+                </div>
+                        </div>
+
+                        <div class="tab-pane fade <?= $tabActivo === 'listado' ? 'show active' : '' ?>" id="panel-listado" role="tabpanel" aria-labelledby="tab-listado">
+                            <div class="table-responsive">
+                                <table id="tablaCanjes" class="table table-striped table-bordered align-middle" style="width:100%">
+                                    <thead>
+                                        <tr>
+                                            <th>Folio</th>
+                                            <th>Cliente</th>
+                                            <th>Telefono</th>
+                                            <th>Documento</th>
+                                            <th>Premios</th>
+                                            <th>Total puntos</th>
+                                            <th>Saldo antes</th>
+                                            <th>Saldo despues</th>
+                                            <th>Usuario</th>
+                                            <th>Fecha</th>
+                                            <th>Estatus</th>
+                                            <th>Recibo</th>
+                                            <?php if ($puedeAdministrarCanjes): ?>
+                                                <th>Acciones</th>
+                                            <?php endif; ?>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php foreach ($canjesRegistrados as $canje): ?>
+                                            <tr>
+                                                <td><?= htmlspecialchars($canje['folio'], ENT_QUOTES, 'UTF-8') ?></td>
+                                                <td><?= htmlspecialchars(trim($canje['nombres'] . ' ' . $canje['apellido_p'] . ' ' . $canje['apellido_m']), ENT_QUOTES, 'UTF-8') ?></td>
+                                                <td><?= htmlspecialchars($canje['telefono'], ENT_QUOTES, 'UTF-8') ?></td>
+                                                <td><?= $canje['documento_folio'] !== null && $canje['documento_folio'] !== '' ? '<b>' . htmlspecialchars($canje['documento_folio'], ENT_QUOTES, 'UTF-8') . '</b>' : '<span class="text-muted">-</span>' ?></td>
+                                                <td>
+                                                    <?php foreach ($canje['detalles'] as $detalle): ?>
+                                                        <div>
+                                                            <?= (int) $detalle['cantidad'] ?> x <?= htmlspecialchars($detalle['premio'], ENT_QUOTES, 'UTF-8') ?>
+                                                            <span class="text-muted">(<?= number_format((float) $detalle['puntos_total'], 2) ?> pts)</span>
+                                                        </div>
+                                                    <?php endforeach; ?>
+                                                </td>
+                                                <td><?= number_format((float) $canje['total_puntos'], 2) ?></td>
+                                                <td><?= number_format((float) $canje['saldo_antes'], 2) ?></td>
+                                                <td><?= number_format((float) $canje['saldo_despues'], 2) ?></td>
+                                                <td><?= htmlspecialchars($canje['usuario'], ENT_QUOTES, 'UTF-8') ?></td>
+                                                <td><?= htmlspecialchars($canje['fecha_canje'], ENT_QUOTES, 'UTF-8') ?></td>
+                                                <td>
+                                                    <span class="badge <?= $canje['estatus'] === 'CANCELADO' ? 'text-bg-danger' : 'text-bg-success' ?>">
+                                                        <?= htmlspecialchars($canje['estatus'], ENT_QUOTES, 'UTF-8') ?>
+                                                    </span>
+                                                    <?php if ($canje['estatus'] === 'CANCELADO' && !empty($canje['motivo_cancelacion'])): ?>
+                                                        <div class="small text-muted mt-1"><?= htmlspecialchars($canje['motivo_cancelacion'], ENT_QUOTES, 'UTF-8') ?></div>
+                                                    <?php endif; ?>
+                                                </td>
+                                                <td class="text-nowrap">
+                                                    <a href="ticket.php?id=<?= (int) $canje['id_canje'] ?>" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm" title="Ver / imprimir recibo">
+                                                        <i class="bi bi-receipt"></i>
+                                                    </a>
+                                                </td>
+                                                <?php if ($puedeAdministrarCanjes): ?>
+                                                    <td class="text-nowrap">
+                                                        <?php if ($canje['estatus'] === 'CONFIRMADO'): ?>
+                                                            <button type="button" class="btn btn-outline-danger btn-sm cancelar-canje" data-id="<?= (int) $canje['id_canje'] ?>" data-folio="<?= htmlspecialchars($canje['folio'], ENT_QUOTES, 'UTF-8') ?>">
+                                                                <i class="bi bi-x-circle"></i>
+                                                            </button>
+                                                        <?php endif; ?>
+                                                    </td>
+                                                <?php endif; ?>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -134,6 +231,24 @@ unset($_SESSION['mensaje_canje_correcto'], $_SESSION['mensaje_canje_error'], $_S
     const estado = { saldo: 0, premios: {}, carrito: {} };
     const dinero = valor => Number(valor).toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
     const escapar = valor => String(valor ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;'}[c]));
+
+    $('#tablaCanjes').DataTable({
+        order: [[9, 'desc']],
+        pageLength: 25,
+        language: {
+            url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json'
+        }
+    });
+
+    document.querySelectorAll('#tablaCanjes .cancelar-canje').forEach(boton => {
+        boton.addEventListener('click', () => solicitarCancelacion(boton.dataset.id, boton.dataset.folio));
+    });
+
+    document.querySelectorAll('button[data-bs-toggle="tab"]').forEach(tab => {
+        tab.addEventListener('shown.bs.tab', () => {
+            $.fn.dataTable.tables({ visible: true, api: true }).columns.adjust();
+        });
+    });
 
     document.getElementById('btnBuscar').addEventListener('click', buscarCliente);
     document.getElementById('telefono').addEventListener('keydown', e => { if (e.key === 'Enter') buscarCliente(); });
@@ -192,7 +307,7 @@ unset($_SESSION['mensaje_canje_correcto'], $_SESSION['mensaje_canje_error'], $_S
                     </div>
                     <div class="card-body d-flex flex-column">
                         <h5 class="card-title">${escapar(premio.premio)}</h5>
-                        <p class="small text-muted mb-2">${escapar(premio.categoria)}</p>
+                        <p class="small text-muted mb-2">${escapar(premio.categoria)}${premio.codigo ? ' &middot; Codigo: <b>' + escapar(premio.codigo) + '</b>' : ''}</p>
                         <p class="card-text small flex-grow-1">${escapar(premio.descripcion)}</p>
                         <div><b>${dinero(premio.puntos_requeridos)} puntos</b></div>
                         <div class="small mb-2">Existencia: ${Number(premio.stock)}</div>
@@ -266,12 +381,14 @@ unset($_SESSION['mensaje_canje_correcto'], $_SESSION['mensaje_canje_error'], $_S
         }
         contenedor.innerHTML = historial.map(canje => `<div class="border rounded p-3 mb-2">
             <div class="d-flex flex-wrap justify-content-between"><b>${escapar(canje.folio)}</b><span>${escapar(canje.fecha_canje)}</span></div>
+            ${canje.documento_folio ? `<div class="small text-muted"><b>Documento:</b> ${escapar(canje.documento_folio)}</div>` : ''}
             <div>${canje.detalles.map(d => `${Number(d.cantidad)} x ${escapar(d.premio)}`).join('<br>')}</div>
             <div class="mt-1"><b>Total:</b> ${dinero(canje.total_puntos)} puntos | <b>Saldo posterior:</b> ${dinero(canje.saldo_despues)}</div>
             <div class="mt-1"><b>Estatus:</b> <span class="badge ${canje.estatus === 'CANCELADO' ? 'text-bg-danger' : 'text-bg-success'}">${escapar(canje.estatus)}</span></div>
             ${canje.estatus === 'CANCELADO' && canje.motivo_cancelacion
                 ? `<div class="small text-muted mt-1"><b>Motivo:</b> ${escapar(canje.motivo_cancelacion)}</div>`
                 : ''}
+            <a href="ticket.php?id=${canje.id_canje}" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm mt-2"><i class="bi bi-receipt"></i> Recibo</a>
             ${puedeAdministrarCanjes && canje.estatus === 'CONFIRMADO'
                 ? `<button type="button" class="btn btn-outline-danger btn-sm mt-2 cancelar-canje" data-id="${canje.id_canje}" data-folio="${escapar(canje.folio)}">Cancelar canje</button>`
                 : ''}
