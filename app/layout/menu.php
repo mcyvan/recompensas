@@ -331,6 +331,13 @@ $remisionesManualesDosificadorActivas = remisionesManualesDosificadorHabilitadas
             </a>
           </li>
           <?php if ($_SESSION['rol'] === 'ADMIN CANJE') { ?>
+            <li class="nav-header">CLIENTES</li>
+            <li class="nav-item">
+              <a href="../clientes/registrar_cliente.php" class="nav-link">
+                <i class="bi bi-people"></i>
+                <p>CLIENTES</p>
+              </a>
+            </li>
             <li class="nav-header">REMISIONES</li>
             <li class="nav-item">
               <a href="../remisiones/index.php" class="nav-link">

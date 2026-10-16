@@ -13,12 +13,15 @@ $idUsuario = (int) ($_SESSION['id_usuario_login'] ?? 0);
 $esAdministracion = in_array($rol, ['ADMINISTRADOR', 'ADMINISTRACION'], true);
 $esVendedor = $rol === 'VENDEDOR';
 $esLogistica = $rol === 'LOGISTICA';
+// ADMIN CANJE solo consulta la lista de clientes: sin acciones (editar, desactivar, credencial).
+$esAdminCanje = $rol === 'ADMIN CANJE';
+$mostrarAcciones = !$esAdminCanje;
 $puedeAdministrarClientes = $esAdministracion || $esVendedor;
 $puedeDarAltaClientes = $puedeAdministrarClientes || $esLogistica;
 $puedeElegirVendedorCliente = $esAdministracion || $esLogistica;
-$puedeVerClientes = $puedeAdministrarClientes || $esLogistica;
+$puedeVerClientes = $puedeAdministrarClientes || $esLogistica || $esAdminCanje;
 
-$clientes = ($esAdministracion || $esLogistica)
+$clientes = ($esAdministracion || $esLogistica || $esAdminCanje)
     ? obtenerClientes()
     : ($esVendedor ? obtenerClientesPorUsuario($idUsuario) : []);
 
@@ -511,7 +514,9 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
                                                     <th>Estatus</th>
                                                     <th>Puntos</th>
                                                     <th>Credencial</th>
+                                                    <?php if ($mostrarAcciones): ?>
                                                     <th>Acciones</th>
+                                                    <?php endif; ?>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -559,6 +564,7 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
                                                                 <span class="badge text-bg-secondary">No impresa</span>
                                                             <?php endif; ?>
                                                         </td>
+                                                        <?php if ($mostrarAcciones): ?>
                                                         <td>
                                                             <?php $nombreCompletoCliente = $nombreCompletoClienteFila; ?>
                                                             <div class="acciones-cliente">
@@ -584,6 +590,7 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
                                                                 </button>
                                                             </div>
                                                         </td>
+                                                        <?php endif; ?>
                                                     </tr>
                                                 <?php
                                                 }
@@ -789,7 +796,8 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
                 $('#tablaClientes').DataTable({
                     order: [[10, 'desc']],
                     columnDefs: [
-                        { orderable: false, targets: [12] },
+                        <?php if ($mostrarAcciones): ?>{ orderable: false, targets: [12] },<?php endif; ?>
+
                         // La columna se ve con comas ("1,815.00"); sin esto
                         // DataTables a veces la detecta como texto y ordena
                         // alfabeticamente en vez de numericamente.
