@@ -10,6 +10,10 @@ $premios = array_values(array_filter(obtenerPremios(), static function (array $p
     return (int) ($premio['activo'] ?? 0) === 1;
 }));
 
+// De menos a mas puntos; a igual de puntos, por nombre.
+usort($premios, static fn(array $a, array $b): int =>
+    [(float) $a['puntos_requeridos'], $a['premio']] <=> [(float) $b['puntos_requeridos'], $b['premio']]);
+
 $stmt = $pdo->query(
     "SELECT puntos_por_m3
      FROM tb_configuracion_puntos
@@ -200,6 +204,9 @@ $puntosPorM3 = (float) ($stmt->fetchColumn() ?: 0);
                                                     <div class="premio-body">
                                                         <div class="premio-nombre"><?= htmlspecialchars((string) $premio['premio'], ENT_QUOTES, 'UTF-8') ?></div>
                                                         <div class="premio-categoria"><?= htmlspecialchars((string) $premio['categoria'], ENT_QUOTES, 'UTF-8') ?></div>
+                                                        <?php if (!empty($premio['codigo'])): ?>
+                                                            <div class="small text-muted">Codigo: <b><?= htmlspecialchars((string) $premio['codigo'], ENT_QUOTES, 'UTF-8') ?></b></div>
+                                                        <?php endif; ?>
                                                         <p class="text-muted mb-0"><?= htmlspecialchars((string) $premio['descripcion'], ENT_QUOTES, 'UTF-8') ?></p>
                                                         <div class="premio-meta">
                                                             <div class="premio-metric">

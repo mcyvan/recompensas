@@ -163,6 +163,17 @@ if (isset($_SESSION['mensaje_registro_usuario_eliminado'])) {
                                                 required>
 
                                             <label class="form-label">
+                                                <b>Código de producto</b>
+                                            </label>
+                                            <input
+                                                type="text"
+                                                class="form-control"
+                                                name="codigo"
+                                                maxlength="50"
+                                                placeholder="Opcional"
+                                                value="">
+
+                                            <label class="form-label">
                                                 <b>Categoría</b>
                                             </label>
                                             <select name="id_categoria" class="form-control" required>
@@ -346,6 +357,7 @@ if (isset($_SESSION['mensaje_registro_usuario_eliminado'])) {
                                         <th class="text-center align-middle">#</th>
                                         <th>Imagen</th>
                                         <th>Premio</th>
+                                        <th>Código</th>
                                         <th>Categoría</th>
                                         <th>Puntos</th>
                                         <th>Stock</th>
@@ -382,6 +394,10 @@ if (isset($_SESSION['mensaje_registro_usuario_eliminado'])) {
 
                                             <td>
                                                 <?php echo $premio['premio']; ?>
+                                            </td>
+
+                                            <td>
+                                                <?php echo htmlspecialchars((string) ($premio['codigo'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>
                                             </td>
 
                                             <td>

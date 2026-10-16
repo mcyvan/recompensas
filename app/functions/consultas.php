@@ -490,6 +490,7 @@ function obtenerPremios()
     $sql = "select 
             tb_premios.id_premio,
             tb_premios.premio,
+            tb_premios.codigo,
             tb_premios.descripcion,
             tb_premios.puntos_requeridos,
             tb_premios.stock,
@@ -515,6 +516,7 @@ function obtenerPremiosxId(int $id_premio)
     $sql = "select 
             tb_premios.id_premio,
             tb_premios.premio,
+            tb_premios.codigo,
             tb_premios.descripcion,
             tb_premios.puntos_requeridos,
             tb_premios.stock,
