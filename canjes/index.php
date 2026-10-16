@@ -64,6 +64,11 @@ unset($_SESSION['mensaje_canje_correcto'], $_SESSION['mensaje_canje_error'], $_S
                         <?php if ($canjeRealizado): ?>
                             <div><b>Folio:</b> <?php echo htmlspecialchars($canjeRealizado['folio']); ?></div>
                             <div><b>Saldo restante:</b> <?php echo number_format((float) $canjeRealizado['saldo_despues'], 2); ?> puntos</div>
+                            <?php if (!empty($canjeRealizado['id_canje'])): ?>
+                                <a href="ticket.php?id=<?= (int) $canjeRealizado['id_canje'] ?>&imprimir=1" target="_blank" rel="noopener" class="btn btn-success btn-sm mt-2">
+                                    <i class="bi bi-receipt"></i> Imprimir recibo
+                                </a>
+                            <?php endif; ?>
                         <?php endif; ?>
                     </div>
                 <?php endif; ?>
@@ -157,6 +162,7 @@ unset($_SESSION['mensaje_canje_correcto'], $_SESSION['mensaje_canje_error'], $_S
                                             <th>Usuario</th>
                                             <th>Fecha</th>
                                             <th>Estatus</th>
+                                            <th>Recibo</th>
                                             <?php if ($puedeAdministrarCanjes): ?>
                                                 <th>Acciones</th>
                                             <?php endif; ?>
@@ -189,6 +195,11 @@ unset($_SESSION['mensaje_canje_correcto'], $_SESSION['mensaje_canje_error'], $_S
                                                     <?php if ($canje['estatus'] === 'CANCELADO' && !empty($canje['motivo_cancelacion'])): ?>
                                                         <div class="small text-muted mt-1"><?= htmlspecialchars($canje['motivo_cancelacion'], ENT_QUOTES, 'UTF-8') ?></div>
                                                     <?php endif; ?>
+                                                </td>
+                                                <td class="text-nowrap">
+                                                    <a href="ticket.php?id=<?= (int) $canje['id_canje'] ?>" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm" title="Ver / imprimir recibo">
+                                                        <i class="bi bi-receipt"></i>
+                                                    </a>
                                                 </td>
                                                 <?php if ($puedeAdministrarCanjes): ?>
                                                     <td class="text-nowrap">
@@ -296,7 +307,7 @@ unset($_SESSION['mensaje_canje_correcto'], $_SESSION['mensaje_canje_error'], $_S
                     </div>
                     <div class="card-body d-flex flex-column">
                         <h5 class="card-title">${escapar(premio.premio)}</h5>
-                        <p class="small text-muted mb-2">${escapar(premio.categoria)}</p>
+                        <p class="small text-muted mb-2">${escapar(premio.categoria)}${premio.codigo ? ' &middot; Codigo: <b>' + escapar(premio.codigo) + '</b>' : ''}</p>
                         <p class="card-text small flex-grow-1">${escapar(premio.descripcion)}</p>
                         <div><b>${dinero(premio.puntos_requeridos)} puntos</b></div>
                         <div class="small mb-2">Existencia: ${Number(premio.stock)}</div>
@@ -377,6 +388,7 @@ unset($_SESSION['mensaje_canje_correcto'], $_SESSION['mensaje_canje_error'], $_S
             ${canje.estatus === 'CANCELADO' && canje.motivo_cancelacion
                 ? `<div class="small text-muted mt-1"><b>Motivo:</b> ${escapar(canje.motivo_cancelacion)}</div>`
                 : ''}
+            <a href="ticket.php?id=${canje.id_canje}" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm mt-2"><i class="bi bi-receipt"></i> Recibo</a>
             ${puedeAdministrarCanjes && canje.estatus === 'CONFIRMADO'
                 ? `<button type="button" class="btn btn-outline-danger btn-sm mt-2 cancelar-canje" data-id="${canje.id_canje}" data-folio="${escapar(canje.folio)}">Cancelar canje</button>`
                 : ''}

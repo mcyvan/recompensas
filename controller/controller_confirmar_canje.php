@@ -213,7 +213,7 @@ try {
     $pdo->commit();
     $_SESSION['csrf_canjes'] = bin2hex(random_bytes(32));
     $_SESSION['mensaje_canje_correcto'] = 'Canje registrado correctamente.';
-    $_SESSION['canje_realizado'] = ['folio' => $folio, 'saldo_despues' => $saldoDespues];
+    $_SESSION['canje_realizado'] = ['id_canje' => $idCanje, 'folio' => $folio, 'saldo_despues' => $saldoDespues];
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();

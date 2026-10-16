@@ -75,7 +75,7 @@ function obtenerClienteCanjePorTelefono(PDO $pdo, string $telefono): ?array
 function obtenerPremiosDisponiblesCanje(PDO $pdo): array
 {
     $stmt = $pdo->query(
-        "SELECT p.id_premio, p.premio, p.descripcion, p.puntos_requeridos,
+        "SELECT p.id_premio, p.premio, p.codigo, p.descripcion, p.puntos_requeridos,
                 p.stock, p.imagen, c.categoria
          FROM tb_premios p
          INNER JOIN tb_categorias c ON c.id_categoria = p.id_categoria
@@ -180,6 +180,39 @@ function obtenerCanjesRegistrados(PDO $pdo, int $limite = 1000): array
     unset($canje);
 
     return $canjes;
+}
+
+// Todo lo que lleva el ticket de un canje: datos del canje, cliente, quien lo atendio y
+// los premios (con su codigo de producto si lo tienen). null si no existe.
+function obtenerCanjeParaTicket(PDO $pdo, int $idCanje): ?array
+{
+    $stmt = $pdo->prepare(
+        "SELECT cj.id_canje, cj.folio, cj.documento_folio, cj.total_puntos, cj.saldo_antes,
+                cj.saldo_despues, cj.estatus, cj.motivo_cancelacion, cj.fecha_canje, cj.fecha_cancelacion,
+                c.telefono, TRIM(CONCAT(c.nombres, ' ', c.apellido_p, ' ', IFNULL(c.apellido_m, ''))) AS cliente,
+                u.usuario AS atendio
+         FROM tb_canjes cj
+         INNER JOIN tb_clientes c ON c.id_cliente = cj.id_cliente
+         LEFT JOIN tb_usuarios u ON u.id_usuario = cj.id_usuario
+         WHERE cj.id_canje = ?"
+    );
+    $stmt->execute([$idCanje]);
+    $canje = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$canje) {
+        return null;
+    }
+
+    $stmt = $pdo->prepare(
+        "SELECT d.premio, d.cantidad, d.puntos_unitarios, d.puntos_total, p.codigo
+         FROM tb_canje_detalle d
+         LEFT JOIN tb_premios p ON p.id_premio = d.id_premio
+         WHERE d.id_canje = ?
+         ORDER BY d.id_canje_detalle ASC"
+    );
+    $stmt->execute([$idCanje]);
+    $canje['detalles'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    return $canje;
 }
 
 function generarFolioCanje(): string
