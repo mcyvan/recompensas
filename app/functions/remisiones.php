@@ -1,5 +1,9 @@
 <?php
 
+// Un colado de este tiempo o menos (en minutos) se considera sospechoso: lo mas probable
+// es que el chofer paro el cronometro muy rapido o se equivoco.
+const MINUTOS_COLADO_SOSPECHOSO = 5;
+
 function normalizarFolioRemisionOperador(string $folio): string
 {
     $folio = strtoupper(trim($folio));
@@ -167,11 +171,18 @@ function filtrosListadoRemisiones(array $entrada): array
         [$fechaInicio, $fechaFin] = [$fechaFin, $fechaInicio];
     }
 
+    // Duracion de la descarga en minutos, para encontrar colados sospechosamente
+    // cortos (el chofer paro el tiempo muy rapido) o muy largos.
+    $minMinutos = ($entrada['lista_min_minutos'] ?? '') !== '' ? max(0, (int) $entrada['lista_min_minutos']) : null;
+    $maxMinutos = ($entrada['lista_max_minutos'] ?? '') !== '' ? max(0, (int) $entrada['lista_max_minutos']) : null;
+
     return [
         'fecha_inicio' => $fechaInicio,
         'fecha_fin' => $fechaFin,
         'fecha_inicio_sql' => $fechaInicio . ' 00:00:00',
         'fecha_fin_sql' => date('Y-m-d H:i:s', strtotime($fechaFin . ' +1 day')),
+        'min_minutos' => $minMinutos,
+        'max_minutos' => $maxMinutos,
     ];
 }
 
@@ -188,9 +199,20 @@ function obtenerRemisiones(PDO $pdo, ?array $filtros = null, int $limite = 1000)
     $parametros = [];
 
     if ($filtros) {
-        $where = 'WHERE r.hora_inicio >= ? AND r.hora_inicio < ?';
+        $condiciones = ['r.hora_inicio >= ?', 'r.hora_inicio < ?'];
         $parametros[] = $filtros['fecha_inicio_sql'];
         $parametros[] = $filtros['fecha_fin_sql'];
+
+        if (($filtros['min_minutos'] ?? null) !== null) {
+            $condiciones[] = 'r.minutos_colado >= ?';
+            $parametros[] = $filtros['min_minutos'];
+        }
+        if (($filtros['max_minutos'] ?? null) !== null) {
+            $condiciones[] = 'r.minutos_colado <= ?';
+            $parametros[] = $filtros['max_minutos'];
+        }
+
+        $where = 'WHERE ' . implode(' AND ', $condiciones);
     }
 
     $stmt = $pdo->prepare(
@@ -680,7 +702,8 @@ function obtenerReporteRemisionesPorChofer(PDO $pdo, array $filtros): array
             COALESCE(SUM(CASE WHEN r.estatus <> 'CANCELADO' THEN r.volumen ELSE 0 END), 0) AS total_metros,
             COALESCE(SUM(CASE WHEN r.estatus <> 'CANCELADO' THEN r.puntos ELSE 0 END), 0) AS total_puntos,
             COALESCE(AVG(CASE WHEN r.estatus <> 'CANCELADO' AND r.minutos_colado IS NOT NULL THEN r.minutos_colado ELSE NULL END), 0) AS promedio_minutos,
-            SUM(CASE WHEN r.estatus <> 'CANCELADO' AND r.minutos_colado > 45 THEN 1 ELSE 0 END) AS fuera_tiempo
+            SUM(CASE WHEN r.estatus <> 'CANCELADO' AND r.minutos_colado > 45 THEN 1 ELSE 0 END) AS fuera_tiempo,
+            SUM(CASE WHEN r.estatus <> 'CANCELADO' AND r.minutos_colado <= " . MINUTOS_COLADO_SOSPECHOSO . " THEN 1 ELSE 0 END) AS muy_cortas
          FROM tb_remisiones r
          LEFT JOIN tb_clientes c ON c.id_cliente = r.id_cliente
          LEFT JOIN tb_usuarios vendedor ON vendedor.id_usuario = c.id_usuario

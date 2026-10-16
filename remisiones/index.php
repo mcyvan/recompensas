@@ -270,6 +270,14 @@ if ($tabActivo === 'chofer') {
                                             <label class="form-label"><b>Fecha fin</b></label>
                                             <input type="date" class="form-control" name="lista_fecha_fin" value="<?= htmlspecialchars($filtrosListado['fecha_fin'], ENT_QUOTES, 'UTF-8') ?>">
                                         </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label"><b>Duracion desde (min)</b></label>
+                                            <input type="number" min="0" class="form-control" name="lista_min_minutos" value="<?= $filtrosListado['min_minutos'] ?? '' ?>" placeholder="ej. 1">
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label"><b>Duracion hasta (min)</b></label>
+                                            <input type="number" min="0" class="form-control" name="lista_max_minutos" value="<?= $filtrosListado['max_minutos'] ?? '' ?>" placeholder="ej. 5">
+                                        </div>
                                         <div class="col-md-2 d-grid">
                                             <button type="submit" class="btn btn-primary">
                                                 <i class="bi bi-search"></i> Filtrar
@@ -278,6 +286,11 @@ if ($tabActivo === 'chofer') {
                                         <div class="col-md-2 d-grid">
                                             <a class="btn btn-outline-secondary" href="index.php?tab=remisiones">
                                                 Mes actual
+                                            </a>
+                                        </div>
+                                        <div class="col-md-3 d-grid">
+                                            <a class="btn btn-outline-danger" href="index.php?<?= htmlspecialchars(http_build_query(['tab' => 'remisiones', 'lista_fecha_inicio' => $filtrosListado['fecha_inicio'], 'lista_fecha_fin' => $filtrosListado['fecha_fin'], 'lista_min_minutos' => 0, 'lista_max_minutos' => MINUTOS_COLADO_SOSPECHOSO]), ENT_QUOTES, 'UTF-8') ?>" title="Colados de <?= MINUTOS_COLADO_SOSPECHOSO ?> minutos o menos">
+                                                <i class="bi bi-exclamation-triangle"></i> Ver colados sospechosos (&le; <?= MINUTOS_COLADO_SOSPECHOSO ?> min)
                                             </a>
                                         </div>
                                     </form>
@@ -360,9 +373,10 @@ if ($tabActivo === 'chofer') {
                                                 </td>
                                                 <td><?= htmlspecialchars($remision['hora_inicio'], ENT_QUOTES, 'UTF-8') ?></td>
                                                 <td><?= htmlspecialchars($remision['hora_fin'] ?? '', ENT_QUOTES, 'UTF-8') ?></td>
-                                                <td>
+                                                <td data-order="<?= ($remision['minutos_colado'] ?? null) !== null && $remision['minutos_colado'] !== '' ? (int) $remision['minutos_colado'] : -1 ?>">
                                                     <?php if (($remision['minutos_colado'] ?? null) !== null && $remision['minutos_colado'] !== ''): ?>
-                                                        <span class="badge <?= (float) $remision['minutos_colado'] <= 45 ? 'text-bg-success' : 'text-bg-danger' ?>">
+                                                        <span class="badge <?= (float) $remision['minutos_colado'] > 45 ? 'text-bg-danger' : ((float) $remision['minutos_colado'] <= MINUTOS_COLADO_SOSPECHOSO ? 'text-bg-warning' : 'text-bg-success') ?>"
+                                                            <?= (float) $remision['minutos_colado'] <= MINUTOS_COLADO_SOSPECHOSO ? 'title="Colado muy corto: revisar"' : '' ?>>
                                                             <?= htmlspecialchars(formatoTiempoRemision($remision['minutos_colado']), ENT_QUOTES, 'UTF-8') ?>
                                                         </span>
                                                     <?php else: ?>
@@ -628,6 +642,7 @@ if ($tabActivo === 'chofer') {
                                                             <th>Metros</th>
                                                             <th>Prom. min</th>
                                                             <th>Fuera 45</th>
+                                                            <th title="Colados de <?= MINUTOS_COLADO_SOSPECHOSO ?> minutos o menos">&le; <?= MINUTOS_COLADO_SOSPECHOSO ?> min</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
@@ -638,6 +653,7 @@ if ($tabActivo === 'chofer') {
                                                                 <td><?= number_format((float) $fila['total_metros'], 2) ?></td>
                                                                 <td><?= number_format((float) $fila['promedio_minutos'], 1) ?></td>
                                                                 <td><?= number_format((float) $fila['fuera_tiempo'], 0) ?></td>
+                                                                <td class="<?= (int) $fila['muy_cortas'] > 0 ? 'text-warning fw-bold' : '' ?>"><?= number_format((float) $fila['muy_cortas'], 0) ?></td>
                                                             </tr>
                                                         <?php endforeach; ?>
                                                     </tbody>

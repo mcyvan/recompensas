@@ -90,7 +90,7 @@ foreach ($porCliente as $fila) {
 }
 
 $escribirTitulo('Por chofer');
-fputcsv($salida, ['Chofer', 'Remisiones', 'Metros', 'Puntos', 'Promedio minutos', 'Fuera de 45 min']);
+fputcsv($salida, ['Chofer', 'Remisiones', 'Metros', 'Puntos', 'Promedio minutos', 'Fuera de 45 min', 'Colados de ' . MINUTOS_COLADO_SOSPECHOSO . ' min o menos']);
 foreach ($porChofer as $fila) {
     fputcsv($salida, [
         $fila['operador'],
@@ -99,6 +99,7 @@ foreach ($porChofer as $fila) {
         (float) $fila['total_puntos'],
         round((float) $fila['promedio_minutos'], 2),
         (int) $fila['fuera_tiempo'],
+        (int) $fila['muy_cortas'],
     ]);
 }
 
