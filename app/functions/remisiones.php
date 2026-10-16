@@ -294,7 +294,7 @@ function joinVendedorComercialReporte(): string
 {
     return "LEFT JOIN tb_usuarios_detalle vendedor_detalle ON vendedor_detalle.id_usuario = vendedor.id_usuario
             LEFT JOIN (
-                SELECT UPPER(TRIM(remision)) AS remision,
+                SELECT remision,
                        CASE
                            WHEN UPPER(MAX(TRIM(vendedor))) LIKE '%AMERICAS%' THEN 'AMERICAS'
                            WHEN UPPER(MAX(TRIM(vendedor))) LIKE '%MOSTRADOR%' THEN 'MOSTRADOR'
@@ -305,9 +305,10 @@ function joinVendedorComercialReporte(): string
                        END AS vendedor_archivo
                 FROM tb_ventas_empresa
                 WHERE es_concreto = 1
-                GROUP BY UPPER(TRIM(remision))
+                  AND remision IN (SELECT folio_remision FROM tb_remisiones)
+                GROUP BY remision
             ) venta_reporte
-              ON venta_reporte.remision = UPPER(TRIM(r.folio_remision))";
+              ON venta_reporte.remision = r.folio_remision";
 }
 
 function expresionVendedorComercialReporte(): string

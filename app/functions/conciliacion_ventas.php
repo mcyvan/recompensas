@@ -295,12 +295,12 @@ function obtenerResumenConciliacion(PDO $pdo, array $filtros): array
                    COALESCE(SUM(CASE WHEN x.en_recompensas = 1 THEN x.metros ELSE 0 END), 0) AS metros_registrados
             FROM (
                 SELECT v.fecha, v.remision, SUM(v.cantidad) AS metros,
-                       CASE WHEN EXISTS (
-                           SELECT 1 FROM tb_remisiones r
-                           WHERE UPPER(TRIM(r.folio_remision)) = v.remision
-                             AND r.estatus <> 'CANCELADO'
-                       ) THEN 1 ELSE 0 END AS en_recompensas
+                       CASE WHEN rr.folio IS NOT NULL THEN 1 ELSE 0 END AS en_recompensas
                 FROM tb_ventas_empresa v
+                LEFT JOIN (
+                    SELECT DISTINCT CONVERT(folio_remision USING utf8mb4) COLLATE utf8mb4_unicode_ci AS folio
+                    FROM tb_remisiones WHERE estatus <> 'CANCELADO'
+                ) rr ON rr.folio = v.remision
                 WHERE v.es_concreto = 1 AND v.fecha BETWEEN ? AND ?
                   AND (? = '' OR UPPER(TRIM(v.planta)) = ?)
                 GROUP BY v.fecha, v.remision
@@ -323,12 +323,12 @@ function obtenerConciliacionPorDia(PDO $pdo, array $filtros): array
                 SUM(CASE WHEN x.en_recompensas = 1 THEN x.metros ELSE 0 END) AS metros_registrados
          FROM (
              SELECT v.fecha, v.remision, SUM(v.cantidad) AS metros,
-                    CASE WHEN EXISTS (
-                        SELECT 1 FROM tb_remisiones r
-                        WHERE UPPER(TRIM(r.folio_remision)) = v.remision
-                          AND r.estatus <> 'CANCELADO'
-                    ) THEN 1 ELSE 0 END AS en_recompensas
+                    CASE WHEN rr.folio IS NOT NULL THEN 1 ELSE 0 END AS en_recompensas
              FROM tb_ventas_empresa v
+                LEFT JOIN (
+                    SELECT DISTINCT CONVERT(folio_remision USING utf8mb4) COLLATE utf8mb4_unicode_ci AS folio
+                    FROM tb_remisiones WHERE estatus <> 'CANCELADO'
+                ) rr ON rr.folio = v.remision
              WHERE v.es_concreto = 1 AND v.fecha BETWEEN ? AND ?
                AND (? = '' OR UPPER(TRIM(v.planta)) = ?)
              GROUP BY v.fecha, v.remision
@@ -349,12 +349,12 @@ function obtenerConciliacionPorPlanta(PDO $pdo, array $filtros): array
                 SUM(CASE WHEN x.en_recompensas = 1 THEN x.metros ELSE 0 END) AS metros_registrados
          FROM (
              SELECT v.fecha, v.remision, MAX(v.planta) AS planta, SUM(v.cantidad) AS metros,
-                    CASE WHEN EXISTS (
-                        SELECT 1 FROM tb_remisiones r
-                        WHERE UPPER(TRIM(r.folio_remision)) = v.remision
-                          AND r.estatus <> 'CANCELADO'
-                    ) THEN 1 ELSE 0 END AS en_recompensas
+                    CASE WHEN rr.folio IS NOT NULL THEN 1 ELSE 0 END AS en_recompensas
              FROM tb_ventas_empresa v
+                LEFT JOIN (
+                    SELECT DISTINCT CONVERT(folio_remision USING utf8mb4) COLLATE utf8mb4_unicode_ci AS folio
+                    FROM tb_remisiones WHERE estatus <> 'CANCELADO'
+                ) rr ON rr.folio = v.remision
              WHERE v.es_concreto = 1 AND v.fecha BETWEEN ? AND ?
                AND (? = '' OR UPPER(TRIM(v.planta)) = ?)
              GROUP BY v.fecha, v.remision
@@ -378,12 +378,12 @@ function obtenerConciliacionPorVendedor(PDO $pdo, array $filtros): array
              SELECT v.fecha, v.remision,
                     COALESCE(NULLIF(MAX(TRIM(v.vendedor)), ''), 'SIN VENDEDOR') AS vendedor,
                     SUM(v.cantidad) AS metros,
-                    CASE WHEN EXISTS (
-                        SELECT 1 FROM tb_remisiones r
-                        WHERE UPPER(TRIM(r.folio_remision)) = v.remision
-                          AND r.estatus <> 'CANCELADO'
-                    ) THEN 1 ELSE 0 END AS en_recompensas
+                    CASE WHEN rr.folio IS NOT NULL THEN 1 ELSE 0 END AS en_recompensas
              FROM tb_ventas_empresa v
+                LEFT JOIN (
+                    SELECT DISTINCT CONVERT(folio_remision USING utf8mb4) COLLATE utf8mb4_unicode_ci AS folio
+                    FROM tb_remisiones WHERE estatus <> 'CANCELADO'
+                ) rr ON rr.folio = v.remision
              WHERE v.es_concreto = 1 AND v.fecha BETWEEN ? AND ?
                AND (? = '' OR UPPER(TRIM(v.planta)) = ?)
              GROUP BY v.fecha, v.remision
@@ -488,12 +488,12 @@ function obtenerDetalleConciliacion(PDO $pdo, array $filtros): array
                 MAX(v.cliente) AS cliente,
                 GROUP_CONCAT(DISTINCT v.articulo ORDER BY v.articulo SEPARATOR ' / ') AS articulos,
                 SUM(v.cantidad) AS metros,
-                CASE WHEN EXISTS (
-                    SELECT 1 FROM tb_remisiones r
-                    WHERE UPPER(TRIM(r.folio_remision)) = v.remision
-                      AND r.estatus <> 'CANCELADO'
-                ) THEN 1 ELSE 0 END AS en_recompensas
+                CASE WHEN rr.folio IS NOT NULL THEN 1 ELSE 0 END AS en_recompensas
          FROM tb_ventas_empresa v
+                LEFT JOIN (
+                    SELECT DISTINCT CONVERT(folio_remision USING utf8mb4) COLLATE utf8mb4_unicode_ci AS folio
+                    FROM tb_remisiones WHERE estatus <> 'CANCELADO'
+                ) rr ON rr.folio = v.remision
          WHERE v.es_concreto = 1 AND v.fecha BETWEEN ? AND ?
            AND (? = '' OR UPPER(TRIM(v.planta)) = ?)
          GROUP BY v.fecha, v.remision
@@ -501,6 +501,41 @@ function obtenerDetalleConciliacion(PDO $pdo, array $filtros): array
     );
     $stmt->execute([$filtros['fecha_inicio'], $filtros['fecha_fin'], $filtros['planta'], $filtros['planta']]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+// Resumen general y desglose por dia calculados con las filas del detalle (una por
+// fecha y remision), para no volver a consultar las mismas ventas dos veces.
+// Devuelve [resumen, por_dia] con la misma forma que obtenerResumenConciliacion()
+// y obtenerConciliacionPorDia() (por_dia de la fecha mas reciente a la mas antigua).
+function derivarResumenYDiasConciliacion(array $detalle): array
+{
+    $resumen = ['remisiones_venta' => 0, 'metros_venta' => 0.0, 'remisiones_registradas' => 0, 'metros_registrados' => 0.0];
+    $porDia = [];
+
+    foreach ($detalle as $fila) {
+        $metros = (float) $fila['metros'];
+        $registrada = (int) $fila['en_recompensas'] === 1;
+        $fecha = (string) $fila['fecha'];
+
+        $porDia[$fecha] ??= ['fecha' => $fecha, 'remisiones_venta' => 0, 'metros_venta' => 0.0, 'remisiones_registradas' => 0, 'metros_registrados' => 0.0];
+
+        foreach ([&$resumen, &$porDia[$fecha]] as &$destino) {
+            $destino['remisiones_venta']++;
+            $destino['metros_venta'] += $metros;
+            if ($registrada) {
+                $destino['remisiones_registradas']++;
+                $destino['metros_registrados'] += $metros;
+            }
+        }
+        unset($destino);
+    }
+
+    $total = $resumen['remisiones_venta'];
+    $resumen['faltantes'] = max(0, $total - $resumen['remisiones_registradas']);
+    $resumen['porcentaje'] = $total > 0 ? ($resumen['remisiones_registradas'] * 100 / $total) : 0;
+    krsort($porDia);
+
+    return [$resumen, array_values($porDia)];
 }
 
 function obtenerUltimasCargasVentas(PDO $pdo, int $limite = 10): array
