@@ -8,10 +8,6 @@ require_once("../app/functions/produccion_planta.php");
 verificarSesion();
 verificarPermisoRemisiones();
 
-// ADMIN CANJE solo consulta la lista de remisiones (para ubicar folios del
-// canje); reportes, graficas y produccion son para administracion.
-$soloListado = ($_SESSION['rol'] ?? '') === 'ADMIN CANJE';
-
 if (empty($_SESSION['csrf_remisiones'])) {
     $_SESSION['csrf_remisiones'] = bin2hex(random_bytes(32));
 }
@@ -21,7 +17,7 @@ $mensajeError = $_SESSION['mensaje_remision_error'] ?? null;
 unset($_SESSION['mensaje_remision_correcto'], $_SESSION['mensaje_remision_error']);
 
 $tabSolicitado = (string) ($_GET['tab'] ?? '');
-$tabActivo = (!$soloListado && in_array($tabSolicitado, ['reportes', 'conciliacion', 'produccion', 'chofer'], true)) ? $tabSolicitado : 'remisiones';
+$tabActivo = in_array($tabSolicitado, ['reportes', 'conciliacion', 'produccion', 'chofer'], true) ? $tabSolicitado : 'remisiones';
 
 // Cada pestana calcula solo lo suyo: antes se corrian todas las consultas en cada
 // carga y cambiar de pestana o de fecha tardaba varios segundos.
@@ -233,7 +229,6 @@ if ($tabActivo === 'chofer') {
                                         Remisiones
                                     </a>
                                 </li>
-                                <?php if (!$soloListado): ?>
                                 <li class="nav-item" role="presentation">
                                     <a class="nav-link <?= $tabActivo === 'reportes' ? 'active' : '' ?>" id="tab-reportes" href="index.php?tab=reportes" role="tab">
                                         Reportes
@@ -254,7 +249,6 @@ if ($tabActivo === 'chofer') {
                                         Chofer por dia
                                     </a>
                                 </li>
-                                <?php endif; ?>
                             </ul>
                         </div>
                         <div class="card-body">
@@ -444,7 +438,6 @@ if ($tabActivo === 'chofer') {
                                     </div>
                                 </div>
 
-                                <?php if (!$soloListado): ?>
                                 <div class="tab-pane fade <?= $tabActivo === 'reportes' ? 'show active' : '' ?>" id="panel-reportes" role="tabpanel" aria-labelledby="tab-reportes" <?= $tabActivo !== 'reportes' ? 'hidden' : '' ?>>
                                     <form class="row g-3 align-items-end mb-3" method="GET" action="index.php">
                                         <input type="hidden" name="tab" value="reportes">
@@ -775,7 +768,6 @@ if ($tabActivo === 'chofer') {
                                 <div class="tab-pane fade <?= $tabActivo === 'chofer' ? 'show active' : '' ?>" id="panel-chofer" role="tabpanel" aria-labelledby="tab-chofer" <?= $tabActivo !== 'chofer' ? 'hidden' : '' ?>>
                                     <?php if ($tabActivo === 'chofer') { include __DIR__ . '/../conciliacion/chofer_dia_panel.php'; } ?>
                                 </div>
-                                <?php endif; ?>
                             </div>
                         </div>
                     </div>

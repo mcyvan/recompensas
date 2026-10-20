@@ -32,12 +32,11 @@ function verificarSesion()
             'controller_cancelar_canje.php',
         ];
         $esModuloCanjes = str_contains($script, '/canjes/');
-        $esModuloRemisionesConsulta = $rol === 'ADMIN CANJE' && str_contains($script, '/remisiones/');
         // Solo la lista de clientes, de consulta (sin editar, desactivar ni credencial).
         $esClientesConsulta = $rol === 'ADMIN CANJE' && str_contains($script, '/clientes/registrar_cliente.php');
         $esControladorCanjes = in_array(basename($script), $controladoresPermitidos, true);
 
-        if (!$esModuloCanjes && !$esModuloRemisionesConsulta && !$esClientesConsulta && !$esControladorCanjes) {
+        if (!$esModuloCanjes && !$esClientesConsulta && !$esControladorCanjes) {
             header('Location: ../canjes/index.php');
             exit();
         }

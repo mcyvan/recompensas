@@ -30,7 +30,7 @@ function rolCapturaRemisionActual(): string
 
 function verificarPermisoRemisiones(): void
 {
-    if (!in_array($_SESSION['rol'] ?? '', ['ADMINISTRADOR', 'ADMINISTRACION', 'ADMIN CANJE', 'LOGISTICA'], true)) {
+    if (!in_array($_SESSION['rol'] ?? '', ['ADMINISTRADOR', 'ADMINISTRACION', 'LOGISTICA'], true)) {
         http_response_code(403);
         exit('No tienes permiso para acceder al modulo de remisiones.');
     }

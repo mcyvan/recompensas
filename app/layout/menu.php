@@ -338,13 +338,6 @@ $remisionesManualesDosificadorActivas = remisionesManualesDosificadorHabilitadas
                 <p>CLIENTES</p>
               </a>
             </li>
-            <li class="nav-header">REMISIONES</li>
-            <li class="nav-item">
-              <a href="../remisiones/index.php" class="nav-link">
-                <i class="bi bi-receipt"></i>
-                <p>REMISIONES</p>
-              </a>
-            </li>
           <?php } ?>
         <?php } ?>
       </ul>
