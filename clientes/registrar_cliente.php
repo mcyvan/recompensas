@@ -21,16 +21,7 @@ $puedeDarAltaClientes = $puedeAdministrarClientes || $esLogistica;
 $puedeElegirVendedorCliente = $esAdministracion || $esLogistica;
 $puedeVerClientes = $puedeAdministrarClientes || $esLogistica || $esAdminCanje;
 
-// Como se muestra el camion revolvedor en la credencial:
-//   'chico'      marca de agua tenue abajo a la izquierda, junto al QR
-//   'fondo'      marca de agua grande de fondo, pasa por detras del QR
-//   'encabezado' el camion toma el lugar del logo, arriba del nombre
-//   'moderno'    tarjeta a color: camion sobre cielo, logo grande, cinta roja y barra azul abajo
-$estiloCamionCredencial = 'moderno';
-$camionEnEncabezado = $estiloCamionCredencial === 'encabezado';
-$credencialModerna = $estiloCamionCredencial === 'moderno';
-
-// Estilos de la credencial moderna (los comparte la vista previa y la ventana de impresion).
+// Estilos de la credencial (los comparte la vista previa y la ventana de impresion).
 // Todo va en cqw (porcentaje del ancho de la tarjeta) para que escale igual a 640px que a 85.6mm.
 $cssCredencialModerna = <<<'CSS'
 .cc3-tarjeta{position:relative;width:100%;aspect-ratio:85.6/54;overflow:hidden;border-radius:0;background:radial-gradient(circle at 75% 25%,#e3e3e6 0%,#ececef 45%,#f8f9fb 100%);container-type:inline-size;font-family:"Segoe UI",Arial,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;color:#04214a}
@@ -60,7 +51,7 @@ $cssCredencialModerna = <<<'CSS'
 .cc3-wa svg{width:3.2cqw;height:3.2cqw;fill:#e00918}
 CSS;
 
-// Trazos (viewBox 24x24) de los iconos de la credencial moderna; se usan en HTML y en el canvas.
+// Trazos (viewBox 24x24) de los iconos de la credencial; se usan en HTML y en el canvas.
 $iconosCredencialModerna = [
     'tel' => 'M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1z',
     'id' => 'M3 5h18a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zm5 3a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zm-4 9h8c0-2-1.8-3.5-4-3.5S4 15 4 17zm10-8v2h6V9zm0 4v2h6v-2z',
@@ -153,145 +144,12 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
             flex-wrap: wrap;
         }
 
-        .credencial-cliente-preview {
-            width: min(100%, 420px);
+.credencial-cliente-preview {
+            width: min(100%, 640px);
             margin: 0 auto;
-            border: 1px solid #d7dde8;
-            border-radius: 8px;
-            box-shadow: 0 14px 30px rgba(15, 23, 42, 0.14);
+            position: relative;
             overflow: hidden;
-            position: relative;
-            color: #172033;
-        }
-
-        .credencial-cliente-tarjeta {
-            aspect-ratio: 85.6 / 54;
-            background: linear-gradient(135deg, #ffffff 0%, #f7f9fc 58%, #eef4fb 100%);
-            position: relative;
-        }
-
-        .credencial-cliente-tarjeta::before {
-            content: "";
-            position: absolute;
-            inset: 0 0 auto 0;
-            height: 12px;
-            background: linear-gradient(90deg, #c41230 0%, #c41230 40%, #174a94 40%, #174a94 100%);
-        }
-
-        .credencial-cliente-marca {
-            position: absolute;
-            height: auto;
-            pointer-events: none;
-            user-select: none;
-        }
-
-        .credencial-cliente-marca-chico {
-            left: 1.5%;
-            bottom: 4%;
-            width: 58%;
-        }
-
-        .credencial-cliente-marca-fondo {
-            left: -2%;
-            bottom: 0;
-            width: 104%;
-        }
-
-        .credencial-cliente-inner {
-            position: relative;
-            z-index: 1;
-            height: 100%;
-            padding: 20px 20px 14px;
-            display: grid;
-            grid-template-columns: 1fr 150px;
-            gap: 16px;
-            align-items: start;
-        }
-
-        .credencial-cliente-pie {
-            padding: 8px 20px;
-            font-size: 0.72rem;
-            line-height: 1.35;
-            text-align: center;
-            color: #42526a;
-            background: #f1f4f9;
-            border-top: 1px solid #d7dde8;
-        }
-
-        .credencial-cliente-pie-icono {
-            width: 12px;
-            height: 12px;
-            vertical-align: -1px;
-            margin: 0 2px;
-        }
-
-        .credencial-cliente-logo {
-            width: 150px;
-            height: 80px;
-            object-fit: contain;
-            display: block;
-            margin-bottom: 6px;
-        }
-
-        .credencial-cliente-titulo {
-            font-size: 0.72rem;
-            font-weight: 800;
-            letter-spacing: 0.08em;
-            color: #c41230;
-            text-transform: uppercase;
-            margin-bottom: 4px;
-        }
-
-        .credencial-cliente-nombre {
-            font-size: clamp(1rem, 3vw, 1.45rem);
-            font-weight: 800;
-            line-height: 1.05;
-            margin-bottom: 6px;
-            word-break: break-word;
-        }
-
-        .credencial-cliente-dato {
-            font-size: 0.9rem;
-            margin-bottom: 0;
-            color: #42526a;
-        }
-
-        .credencial-cliente-dato strong {
-            color: #172033;
-        }
-
-        .credencial-cliente-derecha {
-            justify-self: end;
-            align-self: center;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .credencial-cliente-logo-qr {
-            width: 150px;
-            height: 58px;
-            object-fit: contain;
-            display: block;
-        }
-
-        .credencial-cliente-qr {
-            width: 150px;
-            height: 150px;
-            padding: 8px;
-            background: #ffffff;
-            border: 1px solid #e0e6ef;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .credencial-cliente-qr img,
-        .credencial-cliente-qr canvas {
-            width: 130px !important;
-            height: 130px !important;
+            box-shadow: 0 14px 30px rgba(15, 23, 42, 0.22);
         }
 
         .credencial-cliente-texto-qr {
@@ -301,13 +159,6 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
         }
 
         <?php echo $cssCredencialModerna; ?>
-
-        .credencial-cliente-preview.cc3 {
-            width: min(100%, 640px);
-            border: 0;
-            border-radius: 0;
-            box-shadow: 0 14px 30px rgba(15, 23, 42, 0.22);
-        }
 
         .dashboard-clientes-metric {
             border: 1px solid #dde4ee;
@@ -837,7 +688,6 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
                 <div class="modal-body">
-                    <?php if ($credencialModerna): ?>
                     <div class="credencial-cliente-preview cc3" id="credencialCliente">
                         <div class="cc3-tarjeta">
                             <img class="cc3-foto" src="../app/img/marca/credencial_foto.jpg" alt="">
@@ -858,31 +708,6 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
                             </div>
                         </div>
                     </div>
-                    <?php else: ?>
-                    <div class="credencial-cliente-preview" id="credencialCliente">
-                        <div class="credencial-cliente-tarjeta">
-                            <?php if (!$camionEnEncabezado): ?>
-                                <img class="credencial-cliente-marca credencial-cliente-marca-<?php echo $estiloCamionCredencial; ?>" src="../app/img/marca/camion_revolvedor.png" alt="">
-                            <?php endif; ?>
-                            <div class="credencial-cliente-inner">
-                                <div>
-                                    <img class="credencial-cliente-logo" src="../app/img/marca/<?php echo $camionEnEncabezado ? 'camion_revolvedor_logo.png' : 'logo_concretos_americas.png'; ?>" alt="Concretos Americas">
-                                    <div class="credencial-cliente-titulo">Aliado en Obra</div>
-                                    <div class="credencial-cliente-nombre" id="credencialClienteNombre">Cliente</div>
-                                    <div class="credencial-cliente-dato">Telefono: <strong id="credencialClienteTelefono"></strong></div>
-                                    <div class="credencial-cliente-dato">ID: <strong id="credencialClienteId"></strong></div>
-                                </div>
-                                <div class="credencial-cliente-derecha">
-                                    <?php if ($camionEnEncabezado): ?>
-                                        <img class="credencial-cliente-logo-qr" src="../app/img/marca/logo_concretos_americas.png" alt="Concretos Americas">
-                                    <?php endif; ?>
-                                    <div class="credencial-cliente-qr" id="credencialClienteQr"></div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="credencial-cliente-pie">Centro de Canje <?php echo htmlspecialchars($configuracionCentroCanje['nombre_centro']); ?><br><?php echo htmlspecialchars($configuracionCentroCanje['direccion']); ?><br><img class="credencial-cliente-pie-icono" src="../app/img/iconos/telefono.svg" alt="Telefono"><img class="credencial-cliente-pie-icono" src="../app/img/iconos/whatsapp.svg" alt="WhatsApp"> <?php echo htmlspecialchars($configuracionCentroCanje['telefono']); ?></div>
-                    </div>
-                    <?php endif; ?>
                     <div class="mt-3">
                         <div class="small text-muted mb-1">Contenido del QR</div>
                         <div class="credencial-cliente-texto-qr" id="credencialClienteTextoQr"></div>
@@ -988,19 +813,9 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
         const telefonoCredencial = document.getElementById('credencialClienteTelefono');
         const idCredencial = document.getElementById('credencialClienteId');
         const textoQrCredencial = document.getElementById('credencialClienteTextoQr');
-        const estiloCamionCredencial = <?php echo json_encode($estiloCamionCredencial); ?>;
-        const logoArribaDelQr = estiloCamionCredencial === 'encabezado';
-        // Con el camion en el encabezado, su imagen ocupa el lugar del logo (arriba del
-        // nombre) y el logo pasa a ir centrado encima del QR.
-        const logoCredencial = new URL('../app/img/marca/logo_concretos_americas.png', window.location.href).href;
-        const camionEncabezadoCredencial = new URL('../app/img/marca/camion_revolvedor_logo.png', window.location.href).href;
-        const iconoTelefonoCredencial = new URL('../app/img/iconos/telefono.svg', window.location.href).href;
-        const iconoWhatsappCredencial = new URL('../app/img/iconos/whatsapp.svg', window.location.href).href;
-        const marcaAguaCamionCredencial = new URL('../app/img/marca/camion_revolvedor.png', window.location.href).href;
         let datosCredencialCliente = null;
 
-        // ===== Credencial moderna (estilo 'moderno') =====
-        const credencialModerna = <?php echo json_encode($credencialModerna); ?>;
+        // ===== Credencial =====
         const cssCredencialModerna = <?php echo json_encode($cssCredencialModerna); ?>;
         const iconosCredencialModerna = <?php echo json_encode($iconosCredencialModerna); ?>;
         const fotoModernoCredencial = new URL('../app/img/marca/credencial_foto.jpg', window.location.href).href;
@@ -1016,7 +831,7 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
         }
 
         function ajustarNombreModerno(elemento, texto) {
-            if (credencialModerna && elemento) {
+            if (elemento) {
                 elemento.style.fontSize = tamanoNombreModerno(texto) + 'cqw';
             }
         }
@@ -1059,8 +874,8 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
 
             new QRCode(qrClienteContenedor, {
                 text: textoQr,
-                width: credencialModerna ? 240 : 130,
-                height: credencialModerna ? 240 : 130,
+                width: 240,
+                height: 240,
                 colorDark: '#101827',
                 colorLight: '#ffffff',
                 correctLevel: QRCode.CorrectLevel.M
@@ -1121,13 +936,6 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
                 'Guarda esta imagen y muestra el codigo QR al operador cuando llegue tu concreto.';
         }
 
-        const imagenLogoCredencial = new Image();
-        const logoCredencialCargado = new Promise(function(resolver) {
-            imagenLogoCredencial.onload = function() { resolver(true); };
-            imagenLogoCredencial.onerror = function() { resolver(false); };
-        });
-        imagenLogoCredencial.src = logoCredencial;
-
         function precargarIcono(url) {
             const imagen = new Image();
             const cargado = new Promise(function(resolver) {
@@ -1138,10 +946,6 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
             return { imagen: imagen, cargado: cargado };
         }
 
-        const iconoTelefonoPrecargado = precargarIcono(iconoTelefonoCredencial);
-        const iconoWhatsappPrecargado = precargarIcono(iconoWhatsappCredencial);
-        const marcaAguaCamionPrecargada = precargarIcono(marcaAguaCamionCredencial);
-        const camionEncabezadoPrecargado = precargarIcono(camionEncabezadoCredencial);
 
         function dividirTextoEnLineas(ctx, texto, anchoMax) {
             const lineas = [];
@@ -1159,27 +963,6 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
                 lineas.push(linea);
             }
             return lineas;
-        }
-
-        // Reduce la letra hasta que el nombre completo quepa en maxLineas (nunca se corta).
-        function dibujarNombreAjustado(ctx, texto, x, y, anchoMax, maxLineas) {
-            let tamano = 46;
-            let lineas = [];
-            for (; tamano >= 26; tamano -= 4) {
-                ctx.font = `800 ${tamano}px Arial, sans-serif`;
-                lineas = dividirTextoEnLineas(ctx, texto, anchoMax);
-                const cabeAncho = lineas.every(function(linea) {
-                    return ctx.measureText(linea).width <= anchoMax;
-                });
-                if (lineas.length <= maxLineas && cabeAncho) {
-                    break;
-                }
-            }
-            const alturaLinea = Math.round(tamano * 1.15);
-            lineas.forEach(function(linea, indice) {
-                ctx.fillText(linea, x, y + indice * alturaLinea);
-            });
-            return lineas.length * alturaLinea;
         }
 
         function crearQrAltaResolucion(textoQr, tamanoObjetivo) {
@@ -1230,7 +1013,7 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
 
         // Version en imagen (para WhatsApp) de la credencial moderna. Las medidas son las mismas
         // que las del CSS (u = 1cqw = 1% del ancho de la tarjeta).
-        async function crearImagenCredencialModerna(datos) {
+        async function crearImagenCredencial(datos) {
             const W = 1200;
             const H = 757;
             const u = W / 100;
@@ -1499,148 +1282,6 @@ ${cssCredencialModerna}
 </body>
 </html>`;
         }
-        async function crearImagenCredencial(datos) {
-            if (credencialModerna) {
-                return crearImagenCredencialModerna(datos);
-            }
-            const ancho = 1200;
-            const altoTarjeta = 756;
-            const altoPie = 130;
-            const alto = altoTarjeta + altoPie;
-            const lienzo = document.createElement('canvas');
-            lienzo.width = ancho;
-            lienzo.height = alto;
-            const ctx = lienzo.getContext('2d');
-
-            const fondo = ctx.createLinearGradient(0, 0, ancho, altoTarjeta);
-            fondo.addColorStop(0, '#ffffff');
-            fondo.addColorStop(0.58, '#f7f9fc');
-            fondo.addColorStop(1, '#eef4fb');
-            ctx.fillStyle = fondo;
-            ctx.fillRect(0, 0, ancho, altoTarjeta);
-
-            // Marca de agua de camion revolvedor (estilos 'chico' y 'fondo'). Se dibuja antes
-            // que el texto y que la caja blanca del QR, asi que el QR queda siempre encima.
-            if (estiloCamionCredencial !== 'encabezado') {
-                await marcaAguaCamionPrecargada.cargado;
-                if (marcaAguaCamionPrecargada.imagen.naturalWidth) {
-                    const grande = estiloCamionCredencial === 'fondo';
-                    const anchoMarca = grande ? 1260 : 484;
-                    const altoMarca = anchoMarca * marcaAguaCamionPrecargada.imagen.naturalHeight / marcaAguaCamionPrecargada.imagen.naturalWidth;
-                    ctx.drawImage(marcaAguaCamionPrecargada.imagen, grande ? -30 : 10,
-                        altoTarjeta - altoMarca - (grande ? 0 : 20), anchoMarca, altoMarca);
-                }
-            }
-
-            ctx.fillStyle = '#c41230';
-            ctx.fillRect(0, 0, ancho * 0.4, 44);
-            ctx.fillStyle = '#174a94';
-            ctx.fillRect(ancho * 0.4, 0, ancho * 0.6, 44);
-            ctx.strokeStyle = '#d7dde8';
-            ctx.lineWidth = 4;
-            ctx.strokeRect(2, 2, ancho - 4, altoTarjeta - 4);
-
-            // El QR ocupa la mitad derecha de la tarjeta, lo mas grande posible.
-            // Con el camion en el encabezado, el logo va centrado encima del QR y este baja
-            // y se hace un poco mas chico para dejarle lugar.
-            const altoLogoQr = 120;
-            const espacioLogoQr = 18;
-            const margen = 60;
-            const relleno = logoArribaDelQr ? 40 : 44;
-            const qr = crearQrAltaResolucion(datos.textoQr, logoArribaDelQr ? 420 : 560);
-            const lado = qr ? qr.width + relleno * 2 : 0;
-            const cajaX = ancho - margen - lado;
-            const anchoTexto = (lado ? cajaX : ancho) - margen - 30;
-
-            await Promise.all([logoCredencialCargado, camionEncabezadoPrecargado.cargado]);
-            const imagenEncabezado = logoArribaDelQr ? camionEncabezadoPrecargado.imagen : imagenLogoCredencial;
-            if (imagenEncabezado.naturalWidth) {
-                const escala = Math.min(430 / imagenEncabezado.naturalWidth, 200 / imagenEncabezado.naturalHeight);
-                ctx.drawImage(imagenEncabezado, margen, 62,
-                    imagenEncabezado.naturalWidth * escala, imagenEncabezado.naturalHeight * escala);
-            }
-
-            ctx.textBaseline = 'alphabetic';
-            ctx.fillStyle = '#c41230';
-            ctx.font = '800 28px Arial, sans-serif';
-            ctx.fillText('ALIADO EN OBRA', margen, 300);
-
-            ctx.fillStyle = '#172033';
-            let y = 362;
-            y += dibujarNombreAjustado(ctx, String(datos.nombre || '').toUpperCase(), margen, y, anchoTexto, 3) + 14;
-
-            const dibujarDato = function(etiqueta, valor) {
-                ctx.font = '34px Arial, sans-serif';
-                ctx.fillStyle = '#42526a';
-                ctx.fillText(etiqueta + ' ', margen, y);
-                const desplazamiento = ctx.measureText(etiqueta + ' ').width;
-                ctx.font = '800 34px Arial, sans-serif';
-                ctx.fillStyle = '#172033';
-                ctx.fillText(valor, margen + desplazamiento, y);
-                y += 50;
-            };
-            dibujarDato('Telefono:', datos.telefono);
-            dibujarDato('ID:', datos.idCliente);
-
-            if (qr) {
-                const alturaBloque = (logoArribaDelQr ? altoLogoQr + espacioLogoQr : 0) + lado;
-                const bloqueY = 44 + (altoTarjeta - 44 - alturaBloque) / 2;
-                const cajaY = bloqueY + (logoArribaDelQr ? altoLogoQr + espacioLogoQr : 0);
-                if (logoArribaDelQr && imagenLogoCredencial.naturalWidth) {
-                    const escalaLogo = Math.min(lado * 0.8 / imagenLogoCredencial.naturalWidth, altoLogoQr / imagenLogoCredencial.naturalHeight);
-                    const anchoLogo = imagenLogoCredencial.naturalWidth * escalaLogo;
-                    const altoLogo = imagenLogoCredencial.naturalHeight * escalaLogo;
-                    ctx.drawImage(imagenLogoCredencial, cajaX + (lado - anchoLogo) / 2, bloqueY + (altoLogoQr - altoLogo) / 2, anchoLogo, altoLogo);
-                }
-                ctx.fillStyle = '#ffffff';
-                ctx.fillRect(cajaX, cajaY, lado, lado);
-                ctx.strokeStyle = '#d7dde8';
-                ctx.lineWidth = 3;
-                ctx.strokeRect(cajaX, cajaY, lado, lado);
-                ctx.imageSmoothingEnabled = false;
-                ctx.drawImage(qr, cajaX + relleno, cajaY + relleno, qr.width, qr.height);
-            }
-
-            // Pie con el centro de canje, debajo de la tarjeta.
-            ctx.fillStyle = '#f1f4f9';
-            ctx.fillRect(0, altoTarjeta, ancho, altoPie);
-            ctx.strokeStyle = '#d7dde8';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(2, altoTarjeta, ancho - 4, altoPie - 2);
-            ctx.font = '700 24px Arial, sans-serif';
-            ctx.fillStyle = '#172033';
-            ctx.textAlign = 'center';
-            ctx.fillText('Centro de Canje ' + configuracionCentroCanje.nombreCentro, ancho / 2, altoTarjeta + 34);
-
-            ctx.font = '600 23px Arial, sans-serif';
-            ctx.fillStyle = '#42526a';
-            ctx.fillText(configuracionCentroCanje.direccion, ancho / 2, altoTarjeta + 68);
-
-            const anchoTelefono = ctx.measureText(configuracionCentroCanje.telefono).width;
-            const yTelefono = altoTarjeta + 102;
-            const ladoIcono = 24;
-            const espacioEntreIconos = 5;
-            const espacioIconoTexto = 8;
-
-            await Promise.all([iconoTelefonoPrecargado.cargado, iconoWhatsappPrecargado.cargado]);
-            const hayIconos = iconoTelefonoPrecargado.imagen.naturalWidth && iconoWhatsappPrecargado.imagen.naturalWidth;
-            const anchoIconos = hayIconos ? (ladoIcono * 2 + espacioEntreIconos + espacioIconoTexto) : 0;
-            const inicioX = ancho / 2 - (anchoIconos + anchoTelefono) / 2;
-
-            if (hayIconos) {
-                ctx.imageSmoothingEnabled = true;
-                ctx.drawImage(iconoTelefonoPrecargado.imagen, inicioX, yTelefono - ladoIcono + 7, ladoIcono, ladoIcono);
-                ctx.drawImage(iconoWhatsappPrecargado.imagen, inicioX + ladoIcono + espacioEntreIconos, yTelefono - ladoIcono + 7, ladoIcono, ladoIcono);
-            }
-
-            ctx.fillStyle = '#172033';
-            ctx.textAlign = 'left';
-            ctx.fillText(configuracionCentroCanje.telefono, inicioX + anchoIconos, yTelefono);
-
-            return new Promise(function(resolver) {
-                lienzo.toBlob(resolver, 'image/png');
-            });
-        }
 
         document.getElementById('btnEnviarWhatsappCliente').addEventListener('click', async function() {
             if (!datosCredencialCliente) {
@@ -1736,178 +1377,7 @@ ${cssCredencialModerna}
                 return Promise.resolve(false);
             }
 
-            ventana.document.write(credencialModerna ? htmlImpresionModerna(datos, imagenQr) : `<!doctype html>
-<html lang="es">
-<head>
-    <meta charset="utf-8">
-    <title>Credencial cliente</title>
-    <style>
-        @page { size: 85.6mm 54mm; margin: 0; }
-        * { box-sizing: border-box; }
-        body {
-            margin: 0;
-            width: 85.6mm;
-            height: 54mm;
-            font-family: Arial, sans-serif;
-            color: #172033;
-            background: #ffffff;
-        }
-        .credencial {
-            width: 85.6mm;
-            height: 54mm;
-            border: 0.3mm solid #d7dde8;
-            border-radius: 2mm;
-            overflow: hidden;
-            background: linear-gradient(135deg, #ffffff 0%, #f7f9fc 58%, #eef4fb 100%);
-            position: relative;
-        }
-        .barra {
-            height: 3.2mm;
-            background: linear-gradient(90deg, #c41230 0%, #c41230 40%, #174a94 40%, #174a94 100%);
-        }
-        .marca-agua {
-            position: absolute;
-            height: auto;
-        }
-        .marca-agua.chico {
-            left: 1.5mm;
-            bottom: 11.5mm;
-            width: 47.5mm;
-        }
-        .marca-agua.fondo {
-            left: 3.5mm;
-            bottom: 10.5mm;
-            width: 78mm;
-        }
-        .contenido {
-            position: relative;
-            height: calc(54mm - 3.2mm - 10.5mm);
-            padding: 2.2mm 5.2mm 1mm;
-            display: grid;
-            grid-template-columns: 1fr 30mm;
-            gap: 3mm;
-            align-items: start;
-        }
-        .pie {
-            height: 10.5mm;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            line-height: 1.22;
-            font-size: 6pt;
-            font-weight: 500;
-            color: #172033;
-            background: #f1f4f9;
-            border-top: 0.2mm solid #d7dde8;
-            padding: 0 2mm;
-        }
-        .pie strong {
-            font-size: 6.6pt;
-            font-weight: 800;
-        }
-        .pie-icono {
-            width: 2.6mm;
-            height: 2.6mm;
-            vertical-align: -0.3mm;
-            margin: 0 0.4mm;
-        }
-        .logo {
-            width: 30mm;
-            height: 12.5mm;
-            object-fit: contain;
-            display: block;
-            margin-bottom: 0.6mm;
-        }
-        .titulo {
-            font-size: 7pt;
-            font-weight: 800;
-            letter-spacing: 0.08em;
-            color: #c41230;
-            text-transform: uppercase;
-            margin-bottom: 0.5mm;
-        }
-        .nombre {
-            font-size: 11.5pt;
-            font-weight: 800;
-            line-height: 1.05;
-            margin-bottom: 1mm;
-            word-break: break-word;
-        }
-        .dato {
-            font-size: 8pt;
-            color: #42526a;
-            margin-bottom: 0.2mm;
-        }
-        .dato strong { color: #172033; }
-        .qr {
-            width: 30mm;
-            height: 30mm;
-            padding: 1.5mm;
-            border: 0.3mm solid #e0e6ef;
-            border-radius: 1.6mm;
-            background: #ffffff;
-            align-self: center;
-        }
-        .qr img {
-            width: 27mm;
-            height: 27mm;
-            display: block;
-            image-rendering: pixelated;
-        }
-        .logo.camion { object-position: left center; }
-        .derecha {
-            align-self: center;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        .logo-qr {
-            width: 30mm;
-            height: 8.4mm;
-            object-fit: contain;
-            display: block;
-            margin-bottom: 0.6mm;
-        }
-        .derecha.con-logo .qr {
-            width: 27mm;
-            height: 27mm;
-            padding: 1.2mm;
-        }
-        .derecha.con-logo .qr img {
-            width: 24.6mm;
-            height: 24.6mm;
-        }
-    </style>
-</head>
-<body>
-    <div class="credencial">
-        ${estiloCamionCredencial === 'encabezado' ? '' : `<img class="marca-agua ${estiloCamionCredencial}" src="${marcaAguaCamionCredencial}" alt="">`}
-        <div class="barra"></div>
-        <div class="contenido">
-            <div>
-                <img class="logo ${logoArribaDelQr ? 'camion' : ''}" src="${logoArribaDelQr ? camionEncabezadoCredencial : logoCredencial}" alt="Concretos Americas">
-                <div class="titulo">Aliado en Obra</div>
-                <div class="nombre">${escaparHtml(datos.nombre)}</div>
-                <div class="dato">Telefono: <strong>${escaparHtml(datos.telefono)}</strong></div>
-                <div class="dato">ID: <strong>${escaparHtml(datos.idCliente)}</strong></div>
-            </div>
-            <div class="derecha ${logoArribaDelQr ? 'con-logo' : ''}">
-                ${logoArribaDelQr ? `<img class="logo-qr" src="${logoCredencial}" alt="Concretos Americas">` : ''}
-                <div class="qr"><img src="${imagenQr}" alt="QR cliente"></div>
-            </div>
-        </div>
-        <div class="pie"><span><strong>Centro de Canje ${escaparHtml(configuracionCentroCanje.nombreCentro)}</strong><br>${escaparHtml(configuracionCentroCanje.direccion)}<br><img class="pie-icono" src="${iconoTelefonoCredencial}" alt="Telefono"><img class="pie-icono" src="${iconoWhatsappCredencial}" alt="WhatsApp"> ${escaparHtml(configuracionCentroCanje.telefono)}</span></div>
-    </div>
-    <script>
-        window.addEventListener('load', function() {
-            setTimeout(function() {
-                window.print();
-            }, 250);
-        });
-    <\/script>
-</body>
-</html>`);
+            ventana.document.write(htmlImpresionModerna(datos, imagenQr));
             ventana.document.close();
             ventana.focus();
 
