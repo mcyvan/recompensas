@@ -17,6 +17,8 @@ if (!$canje) {
 
 $centro = obtenerConfiguracionCentroCanje($pdo);
 $imprimirAlAbrir = ($_GET['imprimir'] ?? '') === '1';
+// Dentro de la ventana modal de canjes se oculta la barra de botones (el modal trae los suyos).
+$enModal = ($_GET['modal'] ?? '') === '1';
 $cancelado = $canje['estatus'] === 'CANCELADO';
 $e = static fn($valor) => htmlspecialchars((string) $valor, ENT_QUOTES, 'UTF-8');
 $puntos = static fn($valor) => number_format((float) $valor, 2);
@@ -77,10 +79,14 @@ $copias = ['Copia del cliente', 'Copia del Centro de Canje'];
     </style>
 </head>
 <body>
+    <?php if (!$enModal): ?>
     <div class="barra-pantalla">
         <button type="button" onclick="window.print()">Imprimir recibo</button>
         <a href="index.php?tab=listado">Volver a canjes</a>
     </div>
+    <?php else: ?>
+    <div style="height:12px"></div>
+    <?php endif; ?>
 
     <div class="hoja">
         <?php foreach ($copias as $indice => $nombreCopia): ?>

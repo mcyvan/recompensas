@@ -65,9 +65,9 @@ unset($_SESSION['mensaje_canje_correcto'], $_SESSION['mensaje_canje_error'], $_S
                             <div><b>Folio:</b> <?php echo htmlspecialchars($canjeRealizado['folio']); ?></div>
                             <div><b>Saldo restante:</b> <?php echo number_format((float) $canjeRealizado['saldo_despues'], 2); ?> puntos</div>
                             <?php if (!empty($canjeRealizado['id_canje'])): ?>
-                                <a href="ticket.php?id=<?= (int) $canjeRealizado['id_canje'] ?>&imprimir=1" target="_blank" rel="noopener" class="btn btn-success btn-sm mt-2">
-                                    <i class="bi bi-receipt"></i> Imprimir recibo
-                                </a>
+                                <button type="button" class="btn btn-success btn-sm mt-2 btn-recibo" data-id="<?= (int) $canjeRealizado['id_canje'] ?>">
+                                    <i class="bi bi-receipt"></i> Ver / imprimir recibo
+                                </button>
                             <?php endif; ?>
                         <?php endif; ?>
                     </div>
@@ -197,9 +197,9 @@ unset($_SESSION['mensaje_canje_correcto'], $_SESSION['mensaje_canje_error'], $_S
                                                     <?php endif; ?>
                                                 </td>
                                                 <td class="text-nowrap">
-                                                    <a href="ticket.php?id=<?= (int) $canje['id_canje'] ?>" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm" title="Ver / imprimir recibo">
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm btn-recibo" data-id="<?= (int) $canje['id_canje'] ?>" title="Ver / imprimir recibo">
                                                         <i class="bi bi-receipt"></i>
-                                                    </a>
+                                                    </button>
                                                 </td>
                                                 <?php if ($puedeAdministrarCanjes): ?>
                                                     <td class="text-nowrap">
@@ -223,10 +223,60 @@ unset($_SESSION['mensaje_canje_correcto'], $_SESSION['mensaje_canje_error'], $_S
     </main>
     <?php include('../app/layout/footer.php'); ?>
 </div>
+
+<div class="modal fade" id="modalRecibo" tabindex="-1" aria-labelledby="modalReciboTitulo" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalReciboTitulo">Recibo de canje</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body p-0">
+                <iframe id="iframeRecibo" title="Recibo de canje" style="width:100%;height:68vh;border:0;background:#e9ecef"></iframe>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-primary" id="btnImprimirRecibo"><i class="bi bi-printer"></i> Imprimir recibo</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <?php include('../app/layout/footer_links.php'); ?>
 <script>
 (function () {
     const csrfToken = <?php echo json_encode($_SESSION['csrf_canjes']); ?>;
+
+    // Recibo del canje en una ventana modal (se imprime desde el mismo recuadro).
+    const modalReciboElemento = document.getElementById('modalRecibo');
+    const modalRecibo = new bootstrap.Modal(modalReciboElemento);
+    const iframeRecibo = document.getElementById('iframeRecibo');
+
+    function abrirRecibo(idCanje) {
+        iframeRecibo.src = 'ticket.php?id=' + encodeURIComponent(idCanje) + '&modal=1';
+        modalRecibo.show();
+    }
+
+    document.addEventListener('click', function (evento) {
+        const boton = evento.target.closest('.btn-recibo');
+        if (boton) {
+            abrirRecibo(boton.dataset.id);
+        }
+    });
+
+    document.getElementById('btnImprimirRecibo').addEventListener('click', function () {
+        iframeRecibo.contentWindow.focus();
+        iframeRecibo.contentWindow.print();
+    });
+
+    modalReciboElemento.addEventListener('hidden.bs.modal', function () {
+        iframeRecibo.src = 'about:blank';
+    });
+
+    <?php if (!empty($canjeRealizado['id_canje'])): ?>
+    // Al terminar un canje se abre solo el recibo.
+    abrirRecibo(<?= (int) $canjeRealizado['id_canje'] ?>);
+    <?php endif; ?>
     const puedeAdministrarCanjes = <?php echo $puedeAdministrarCanjes ? 'true' : 'false'; ?>;
     const estado = { saldo: 0, premios: {}, carrito: {} };
     const dinero = valor => Number(valor).toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
@@ -388,7 +438,7 @@ unset($_SESSION['mensaje_canje_correcto'], $_SESSION['mensaje_canje_error'], $_S
             ${canje.estatus === 'CANCELADO' && canje.motivo_cancelacion
                 ? `<div class="small text-muted mt-1"><b>Motivo:</b> ${escapar(canje.motivo_cancelacion)}</div>`
                 : ''}
-            <a href="ticket.php?id=${canje.id_canje}" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm mt-2"><i class="bi bi-receipt"></i> Recibo</a>
+            <button type="button" class="btn btn-outline-secondary btn-sm mt-2 btn-recibo" data-id="${canje.id_canje}"><i class="bi bi-receipt"></i> Recibo</button>
             ${puedeAdministrarCanjes && canje.estatus === 'CONFIRMADO'
                 ? `<button type="button" class="btn btn-outline-danger btn-sm mt-2 cancelar-canje" data-id="${canje.id_canje}" data-folio="${escapar(canje.folio)}">Cancelar canje</button>`
                 : ''}
