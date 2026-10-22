@@ -146,10 +146,12 @@ function obtenerCanjesRegistrados(PDO $pdo, int $limite = 1000): array
             c.nombres,
             c.apellido_p,
             c.apellido_m,
-            u.usuario
+            u.usuario,
+            vend.usuario AS vendedor
          FROM tb_canjes cj
          INNER JOIN tb_clientes c ON c.id_cliente = cj.id_cliente
          INNER JOIN tb_usuarios u ON u.id_usuario = cj.id_usuario
+         LEFT JOIN tb_usuarios vend ON vend.id_usuario = c.id_usuario
          ORDER BY cj.fecha_canje DESC, cj.id_canje DESC
          LIMIT $limite"
     );

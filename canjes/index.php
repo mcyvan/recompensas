@@ -154,6 +154,7 @@ unset($_SESSION['mensaje_canje_correcto'], $_SESSION['mensaje_canje_error'], $_S
                                             <th>Folio</th>
                                             <th>Cliente</th>
                                             <th>Telefono</th>
+                                            <th>Vendedor</th>
                                             <th>Documento</th>
                                             <th>Premios</th>
                                             <th>Total puntos</th>
@@ -174,6 +175,7 @@ unset($_SESSION['mensaje_canje_correcto'], $_SESSION['mensaje_canje_error'], $_S
                                                 <td><?= htmlspecialchars($canje['folio'], ENT_QUOTES, 'UTF-8') ?></td>
                                                 <td><?= htmlspecialchars(trim($canje['nombres'] . ' ' . $canje['apellido_p'] . ' ' . $canje['apellido_m']), ENT_QUOTES, 'UTF-8') ?></td>
                                                 <td><?= htmlspecialchars($canje['telefono'], ENT_QUOTES, 'UTF-8') ?></td>
+                                                <td><?= !empty($canje['vendedor']) ? htmlspecialchars($canje['vendedor'], ENT_QUOTES, 'UTF-8') : '<span class="text-muted">-</span>' ?></td>
                                                 <td><?= $canje['documento_folio'] !== null && $canje['documento_folio'] !== '' ? '<b>' . htmlspecialchars($canje['documento_folio'], ENT_QUOTES, 'UTF-8') . '</b>' : '<span class="text-muted">-</span>' ?></td>
                                                 <td>
                                                     <?php foreach ($canje['detalles'] as $detalle): ?>
@@ -283,7 +285,7 @@ unset($_SESSION['mensaje_canje_correcto'], $_SESSION['mensaje_canje_error'], $_S
     const escapar = valor => String(valor ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;'}[c]));
 
     $('#tablaCanjes').DataTable({
-        order: [[9, 'desc']],
+        order: [[10, 'desc']],
         pageLength: 25,
         language: {
             url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json'
