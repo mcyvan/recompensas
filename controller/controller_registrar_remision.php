@@ -3,6 +3,7 @@ include('../app/config/config.php');
 include("../app/functions/auth.php");
 include("../app/functions/consultas_puntos.php");
 include_once("../app/functions/remisiones.php");
+include_once("../app/functions/operador_qr.php");
 /** @var PDO $pdo */
 /** @var string $URL */
 verificarSesion();
@@ -75,6 +76,16 @@ try {
     // ✅ VALIDAR FORMATO
     if (!folioRemisionOperadorValido($folio_remision)) {
         throw new Exception("La remisión debe tener el formato RE seguido de 6 dígitos, por ejemplo RE123456");
+    }
+
+    // Piloto "solo QR": a los usuarios de la lista la remision solo se les registra escaneando
+    // su QR; el folio tiene que venir dentro del texto del QR que mando la pantalla (se compara
+    // por los 6 digitos, el QR a veces trae solo numero). Los demas siguen con la captura de siempre.
+    if (operadorUsaFlujoQr()) {
+        $textoQrRemision = strtoupper((string) ($datos_crm['qr_texto'] ?? ''));
+        if ($textoQrRemision === '' || strpos($textoQrRemision, substr($folio_remision, 2)) === false) {
+            throw new Exception("La remisión solo se puede registrar escaneando su QR");
+        }
     }
 
     // ✅ VALIDAR DUPLICADO

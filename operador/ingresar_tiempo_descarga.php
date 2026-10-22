@@ -2,7 +2,14 @@
 require_once("../app/config/config.php");
 require_once("../app/functions/auth.php");
 require_once('../app/functions/consultas.php');
+require_once('../app/functions/operador_qr.php');
 verificarSesion();
+
+// Usuarios del piloto "solo QR": usan la pantalla nueva.
+if (operadorUsaFlujoQr()) {
+    header('Location: ingresar_tiempo_descarga_qr.php');
+    exit();
+}
 
 ?>
 <!doctype html>
@@ -151,6 +158,10 @@ verificarSesion();
                                                     <div class="col-12">
                                                         <span class="text-muted d-block">Cliente CRM</span>
                                                         <b id="resumenQrCliente">-</b>
+                                                    </div>
+                                                    <div class="col-12">
+                                                        <span class="text-muted d-block">Aliado en obra</span>
+                                                        <b id="resumenQrAliado">-</b>
                                                     </div>
                                                     <div class="col-12">
                                                         <span class="text-muted d-block">Articulo</span>
@@ -348,7 +359,7 @@ verificarSesion();
         function extraerDatosQr(texto) {
             const original = String(texto || "").trim();
             const limpio = original.toUpperCase();
-            const etiquetas = ["REMISION", "FACTURA", "PEDIDO", "FECHA", "PLANTA", "VENDEDOR", "ARTICULO", "UNIDADES", "CANTIDAD", "VOLUMEN", "METROS", "M3", "M³", "PRECIO", "CLIENTE", "TEL", "TELEFONO", "TELÉFONO"];
+            const etiquetas = ["REMISION", "FACTURA", "PEDIDO", "FECHA", "PLANTA", "VENDEDOR", "ARTICULO", "UNIDADES", "CANTIDAD", "VOLUMEN", "METROS", "M3", "M³", "PRECIO", "CLIENTE", "ALIADO EN OBRA", "TEL", "TELEFONO", "TELÉFONO"];
             const telefono = limpio.match(/(?:TEL|TELEFONO|TELÉFONO)\s*:?\s*([0-9]{10})/);
             const idCliente = limpio.match(/(?:CLIENTE_ID|ID_CLIENTE|ID)\s*:?\s*([0-9]+)/);
             const volumen = extraerCampoQr(limpio, "VOLUMEN", etiquetas) ||
@@ -377,7 +388,8 @@ verificarSesion();
                 articulo: articuloPrincipal,
                 cantidad: cantidadPrincipal,
                 precio: normalizarDecimal(extraerCampoQr(limpio, "PRECIO", etiquetas)),
-                cliente: extraerCampoQr(limpio, "CLIENTE", etiquetas)
+                cliente: extraerCampoQr(limpio, "CLIENTE", etiquetas),
+                aliado: extraerCampoQr(limpio, "ALIADO EN OBRA", etiquetas)
             };
         }
 
@@ -529,6 +541,7 @@ verificarSesion();
             ponerResumen("resumenQrFecha", datos.fecha);
             ponerResumen("resumenQrPlanta", datos.planta);
             ponerResumen("resumenQrCliente", datos.cliente);
+            ponerResumen("resumenQrAliado", datos.aliado);
             ponerResumen("resumenQrArticulo", datos.articulo);
             ponerResumen("resumenQrCantidad", datos.cantidad);
             ponerResumen("resumenQrPrecio", datos.precio);
