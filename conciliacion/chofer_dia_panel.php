@@ -56,7 +56,7 @@ $etiquetaDia = static fn(array $d) => $d['dia'] . ' ' . date('d/m', strtotime($d
                     <div class="conc-metric">
                         <small class="fw-bold text-uppercase mb-2">Planta <?= htmlspecialchars($nombrePlanta, ENT_QUOTES, 'UTF-8') ?></small>
                         <?php foreach ($choferesPlanta as $lugar => $chofer):
-                            $colorTop = $chofer['porcentaje'] >= 80 ? 'success' : ($chofer['porcentaje'] >= 50 ? 'info' : 'danger');
+                            $colorTop = $chofer['porcentaje'] >= 75 ? 'success' : ($chofer['porcentaje'] >= 60 ? 'warning' : 'danger');
                             $enlaceChofer = 'index.php?' . http_build_query([
                                 'tab' => 'chofer',
                                 'chofer_operador' => $chofer['operador'],
@@ -70,7 +70,7 @@ $etiquetaDia = static fn(array $d) => $d['dia'] . ' ' . date('d/m', strtotime($d
                                     <span class="text-truncate"><b class="text-muted">#<?= $lugar + 1 ?></b>
                                         <a href="<?= htmlspecialchars($enlaceChofer, ENT_QUOTES, 'UTF-8') ?>" class="text-decoration-none fw-semibold" title="<?= htmlspecialchars($chofer['operador'], ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($chofer['operador'], ENT_QUOTES, 'UTF-8') ?></a>
                                     </span>
-                                    <b class="text-<?= $colorTop === 'info' ? 'primary' : $colorTop ?> text-nowrap"><?= number_format($chofer['porcentaje'], 1) ?>%</b>
+                                    <b class="text-<?= $colorTop === 'warning' ? 'warning-emphasis' : $colorTop ?> text-nowrap"><?= number_format($chofer['porcentaje'], 1) ?>%</b>
                                 </div>
                                 <div class="progress mt-1" style="height:6px"><div class="progress-bar bg-<?= $colorTop ?>" style="width:<?= min(100, max(0, $chofer['porcentaje'])) ?>%"></div></div>
                                 <div class="small text-muted mt-1"><?= number_format($chofer['registradas']) ?> de <?= number_format($chofer['esperadas']) ?> remisiones ingresadas</div>
@@ -79,6 +79,92 @@ $etiquetaDia = static fn(array $d) => $d['dia'] . ' ' . date('d/m', strtotime($d
                     </div>
                 </div>
             <?php endforeach; ?>
+        </div>
+    </div>
+
+    <?php
+    // Semaforo del promedio: verde desde 75%, amarillo de 60% a menos de 75%, rojo abajo de 60%.
+    $colorPromedio = static fn(float $pct): string => $pct >= 75 ? 'success' : ($pct >= 60 ? 'warning' : 'danger');
+    // Un chofer que trabajo en varias plantas (se prestan entre plantas) cuenta una sola vez, con el total de todas.
+    $juntosPorChofer = [];
+    foreach ($porOperadorChofer as $filaPlanta) {
+        $nombreJunto = $filaPlanta['operador'];
+        if (!isset($juntosPorChofer[$nombreJunto])) {
+            $juntosPorChofer[$nombreJunto] = ['operador' => $nombreJunto, 'remisiones_esperadas' => 0, 'remisiones_registradas' => 0, 'plantas' => []];
+        }
+        $juntosPorChofer[$nombreJunto]['remisiones_esperadas'] += (int) $filaPlanta['remisiones_esperadas'];
+        $juntosPorChofer[$nombreJunto]['remisiones_registradas'] += (int) $filaPlanta['remisiones_registradas'];
+        $juntosPorChofer[$nombreJunto]['plantas'][$filaPlanta['planta']] = (int) $filaPlanta['remisiones_esperadas'];
+    }
+    foreach ($juntosPorChofer as &$juntoChofer) {
+        arsort($juntoChofer['plantas']);
+        $juntoChofer['planta'] = implode(' + ', array_keys($juntoChofer['plantas']));
+        $juntoChofer['detalle_plantas'] = implode(', ', array_map(
+            static fn($planta, $cantidad) => $planta . ' ' . $cantidad,
+            array_keys($juntoChofer['plantas']),
+            $juntoChofer['plantas']
+        ));
+    }
+    unset($juntoChofer);
+    $porOperadorChofer = array_values($juntosPorChofer);
+
+    usort($porOperadorChofer, static function (array $a, array $b): int {
+        $pa = (int) $a['remisiones_esperadas'] > 0 ? $a['remisiones_registradas'] / $a['remisiones_esperadas'] : 0;
+        $pb = (int) $b['remisiones_esperadas'] > 0 ? $b['remisiones_registradas'] / $b['remisiones_esperadas'] : 0;
+        // Primero los que tienen al menos 10 remisiones (mayor promedio arriba); los de pocas remisiones al final.
+        $pocasA = (int) $a['remisiones_esperadas'] < 10 ? 1 : 0;
+        $pocasB = (int) $b['remisiones_esperadas'] < 10 ? 1 : 0;
+        return [$pocasA, $pb, (int) $b['remisiones_esperadas'], $a['operador']] <=> [$pocasB, $pa, (int) $a['remisiones_esperadas'], $b['operador']];
+    });
+    ?>
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <b>Promedio de todos los choferes</b>
+            <span class="small">
+                <span class="badge text-bg-success">75% o mas</span>
+                <span class="badge text-bg-warning">60% a 75%</span>
+                <span class="badge text-bg-danger">menos de 60%</span>
+                <span class="badge text-bg-secondary"><?= number_format(count($porOperadorChofer)) ?> choferes</span>
+            </span>
+        </div>
+        <div class="card-body">
+            <p class="text-muted small">
+                Promedio = remisiones capturadas entre las que debieron capturar del
+                <?= date('d/m/Y', strtotime($filtrosChofer['fecha_inicio'])) ?> al <?= date('d/m/Y', strtotime($filtrosChofer['fecha_fin'])) ?>.
+                Si un chofer trabajo en varias plantas, aqui aparece una sola vez con el total de todas.
+                Da clic en un chofer para ver su detalle dia por dia.
+            </p>
+            <?php if (!$porOperadorChofer): ?>
+                <div class="text-muted">No hay remisiones de choferes en el periodo.</div>
+            <?php endif; ?>
+            <div class="row g-2">
+                <?php foreach ($porOperadorChofer as $filaChofer):
+                    $esperadasFila = (int) $filaChofer['remisiones_esperadas'];
+                    $registradasFila = (int) $filaChofer['remisiones_registradas'];
+                    $promedioFila = $esperadasFila > 0 ? $registradasFila * 100 / $esperadasFila : 0;
+                    $colorFila = $colorPromedio($promedioFila);
+                    $enlaceFila = 'index.php?' . http_build_query([
+                        'tab' => 'chofer',
+                        'chofer_operador' => $filaChofer['operador'],
+                        'chofer_fecha_inicio' => $filtrosChofer['fecha_inicio'],
+                        'chofer_fecha_fin' => $filtrosChofer['fecha_fin'],
+                        'chofer_planta' => $filtrosChofer['planta'],
+                    ]);
+                ?>
+                    <div class="col-6 col-md-4 col-xl-3 col-xxl-2">
+                        <a href="<?= htmlspecialchars($enlaceFila, ENT_QUOTES, 'UTF-8') ?>"
+                           class="d-block h-100 text-decoration-none rounded border border-<?= $colorFila ?> bg-<?= $colorFila ?>-subtle text-body p-2"
+                           title="<?= htmlspecialchars($filaChofer['operador'], ENT_QUOTES, 'UTF-8') ?> - remisiones por planta: <?= htmlspecialchars($filaChofer['detalle_plantas'], ENT_QUOTES, 'UTF-8') ?>">
+                            <div class="small fw-semibold text-truncate"><?= htmlspecialchars($filaChofer['operador'], ENT_QUOTES, 'UTF-8') ?></div>
+                            <div class="d-flex justify-content-between align-items-baseline">
+                                <span class="fs-5 fw-bold text-<?= $colorFila === 'warning' ? 'warning-emphasis' : $colorFila ?>"><?= number_format($promedioFila, 1) ?>%</span>
+                                <span class="small text-muted text-end"><?= htmlspecialchars($filaChofer['planta'], ENT_QUOTES, 'UTF-8') ?></span>
+                            </div>
+                            <div class="small text-muted"><?= number_format($registradasFila) ?> de <?= number_format($esperadasFila) ?><?= $esperadasFila < 10 ? ' &middot; pocas remisiones' : '' ?></div>
+                        </a>
+                    </div>
+                <?php endforeach; ?>
+            </div>
         </div>
     </div>
 

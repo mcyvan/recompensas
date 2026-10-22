@@ -113,9 +113,11 @@ if ($tabActivo === 'chofer') {
     $diasChofer = [];
     $faltantesChofer = [];
     $topChoferes = [];
+    $porOperadorChofer = [];
 
     try {
-        $topChoferes = obtenerTopChoferesPorPlanta(obtenerProduccionPorOperador($pdo, $filtrosChofer));
+        $porOperadorChofer = obtenerProduccionPorOperador($pdo, $filtrosChofer);
+        $topChoferes = obtenerTopChoferesPorPlanta($porOperadorChofer);
         $operadoresProduccion = obtenerOperadoresProduccion($pdo);
         if (!in_array($choferSeleccionado, $operadoresProduccion, true)) {
             $choferSeleccionado = '';
