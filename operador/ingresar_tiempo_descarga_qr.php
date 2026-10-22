@@ -452,9 +452,8 @@ if (!operadorUsaFlujoQr()) {
         async function avisarRemisionDeBlock(folio) {
             await Swal.fire({
                 icon: "warning",
-                title: "Remisión de block",
-                html: "La remisión <b>" + escaparHtmlOperador(folio) + "</b> es de block, no de concreto.<br>" +
-                    "<span class='text-muted small'>Aquí solo se registran remisiones de concreto (RE).</span>",
+                title: "No se puede ingresar",
+                html: "La remisión <b>" + escaparHtmlOperador(folio) + "</b> es de block y no se puede ingresar.",
                 confirmButtonText: "Entendido",
                 confirmButtonColor: "#0d6efd",
                 allowOutsideClick: false
@@ -495,7 +494,7 @@ if (!operadorUsaFlujoQr()) {
             if (!folioRemisionValido(valor)) {
                 const esBlock = /^BLR/.test(valor);
                 remisionInfo.innerHTML = esBlock ?
-                    "Remisión de block (BLR): aquí solo se registran remisiones de concreto" :
+                    "Las remisiones de block (BLR) no se pueden ingresar" :
                     "Debe ser RE seguido de 6 dígitos (ej. RE123456)";
                 remisionInfo.className = "text-danger";
                 remisionValida = false;
