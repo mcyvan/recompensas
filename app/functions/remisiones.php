@@ -176,9 +176,9 @@ function filtrosListadoRemisiones(array $entrada): array
     $minMinutos = ($entrada['lista_min_minutos'] ?? '') !== '' ? max(0, (int) $entrada['lista_min_minutos']) : null;
     $maxMinutos = ($entrada['lista_max_minutos'] ?? '') !== '' ? max(0, (int) $entrada['lista_max_minutos']) : null;
 
-    // Botones del listado: todas, las que no tienen cliente o las que no tienen planta.
+    // Botones del listado: todas, sin cliente, sin planta o colados muy cortos.
     $ver = trim((string) ($entrada['lista_ver'] ?? ''));
-    $ver = in_array($ver, ['sin_cliente', 'sin_planta'], true) ? $ver : '';
+    $ver = in_array($ver, ['sin_cliente', 'sin_planta', 'cortos'], true) ? $ver : '';
 
     return [
         'fecha_inicio' => $fechaInicio,
@@ -209,6 +209,8 @@ function condicionesListadoRemisiones(PDO $pdo, array $filtros, bool $incluirVer
 
     if ($incluirVer && ($filtros['ver'] ?? '') === 'sin_cliente') {
         $condiciones[] = 'r.id_cliente IS NULL';
+    } elseif ($incluirVer && ($filtros['ver'] ?? '') === 'cortos') {
+        $condiciones[] = 'r.minutos_colado >= 0 AND r.minutos_colado <= ' . MINUTOS_COLADO_SOSPECHOSO;
     } elseif ($incluirVer && ($filtros['ver'] ?? '') === 'sin_planta') {
         $condiciones[] = isset(columnasTabla($pdo, 'tb_remisiones')['planta_crm'])
             ? "(r.planta_crm IS NULL OR TRIM(r.planta_crm) = '')"
@@ -229,7 +231,8 @@ function obtenerConteosListadoRemisiones(PDO $pdo, array $filtros): array
     $stmt = $pdo->prepare(
         "SELECT COUNT(*) AS todas,
                 SUM(CASE WHEN r.id_cliente IS NULL THEN 1 ELSE 0 END) AS sin_cliente,
-                $sinPlanta AS sin_planta
+                $sinPlanta AS sin_planta,
+                SUM(CASE WHEN r.minutos_colado >= 0 AND r.minutos_colado <= " . MINUTOS_COLADO_SOSPECHOSO . " THEN 1 ELSE 0 END) AS cortos
          FROM tb_remisiones r
          WHERE " . implode(' AND ', $condiciones)
     );
@@ -240,6 +243,7 @@ function obtenerConteosListadoRemisiones(PDO $pdo, array $filtros): array
         'todas' => (int) ($fila['todas'] ?? 0),
         'sin_cliente' => (int) ($fila['sin_cliente'] ?? 0),
         'sin_planta' => (int) ($fila['sin_planta'] ?? 0),
+        'cortos' => (int) ($fila['cortos'] ?? 0),
     ];
 }
 

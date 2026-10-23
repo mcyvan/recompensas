@@ -25,7 +25,7 @@ $filtrosListado = filtrosListadoRemisiones($_GET);
 $remisiones = $tabActivo === 'remisiones' ? obtenerRemisiones($pdo, $filtrosListado) : [];
 $conteosListado = $tabActivo === 'remisiones'
     ? obtenerConteosListadoRemisiones($pdo, $filtrosListado)
-    : ['todas' => 0, 'sin_cliente' => 0, 'sin_planta' => 0];
+    : ['todas' => 0, 'sin_cliente' => 0, 'sin_planta' => 0, 'cortos' => 0];
 $csrf = $_SESSION['csrf_remisiones'];
 $puedeAdministrar = puedeAdministrarRemisiones();
 $puedeEliminarRemisiones = ($_SESSION['rol'] ?? '') === 'ADMINISTRADOR';
@@ -288,17 +288,13 @@ if ($tabActivo === 'chofer') {
                                                 Mes actual
                                             </a>
                                         </div>
-                                        <div class="col-md-3 d-grid">
-                                            <a class="btn btn-outline-danger" href="index.php?<?= htmlspecialchars(http_build_query(['tab' => 'remisiones', 'lista_fecha_inicio' => $filtrosListado['fecha_inicio'], 'lista_fecha_fin' => $filtrosListado['fecha_fin'], 'lista_min_minutos' => 0, 'lista_max_minutos' => MINUTOS_COLADO_SOSPECHOSO]), ENT_QUOTES, 'UTF-8') ?>" title="Colados de <?= MINUTOS_COLADO_SOSPECHOSO ?> minutos o menos">
-                                                <i class="bi bi-exclamation-triangle"></i> Ver colados sospechosos (&le; <?= MINUTOS_COLADO_SOSPECHOSO ?> min)
-                                            </a>
-                                        </div>
                                     </form>
                                     <?php
                                     $botonesListado = [
                                         '' => ['Todas', $conteosListado['todas'], 'bi-list-ul', 'btn-outline-primary'],
                                         'sin_cliente' => ['Sin cliente', $conteosListado['sin_cliente'], 'bi-person-x', 'btn-outline-danger'],
                                         'sin_planta' => ['Sin planta', $conteosListado['sin_planta'], 'bi-building-x', 'btn-outline-warning'],
+                                        'cortos' => ['Menos de ' . MINUTOS_COLADO_SOSPECHOSO . ' min', $conteosListado['cortos'], 'bi-exclamation-triangle', 'btn-outline-danger'],
                                     ];
                                     ?>
                                     <div class="btn-group mb-3" role="group" aria-label="Filtrar remisiones">
