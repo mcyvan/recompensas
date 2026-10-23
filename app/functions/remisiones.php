@@ -176,6 +176,10 @@ function filtrosListadoRemisiones(array $entrada): array
     $minMinutos = ($entrada['lista_min_minutos'] ?? '') !== '' ? max(0, (int) $entrada['lista_min_minutos']) : null;
     $maxMinutos = ($entrada['lista_max_minutos'] ?? '') !== '' ? max(0, (int) $entrada['lista_max_minutos']) : null;
 
+    // Botones del listado: todas, las que no tienen cliente o las que no tienen planta.
+    $ver = trim((string) ($entrada['lista_ver'] ?? ''));
+    $ver = in_array($ver, ['sin_cliente', 'sin_planta'], true) ? $ver : '';
+
     return [
         'fecha_inicio' => $fechaInicio,
         'fecha_fin' => $fechaFin,
@@ -183,6 +187,59 @@ function filtrosListadoRemisiones(array $entrada): array
         'fecha_fin_sql' => date('Y-m-d H:i:s', strtotime($fechaFin . ' +1 day')),
         'min_minutos' => $minMinutos,
         'max_minutos' => $maxMinutos,
+        'ver' => $ver,
+    ];
+}
+
+// Condiciones del listado de remisiones (fechas y duracion). Con $incluirVer tambien aplica el
+// boton elegido (sin cliente / sin planta); los conteos de los botones lo dejan fuera.
+function condicionesListadoRemisiones(PDO $pdo, array $filtros, bool $incluirVer = true): array
+{
+    $condiciones = ['r.hora_inicio >= ?', 'r.hora_inicio < ?'];
+    $parametros = [$filtros['fecha_inicio_sql'], $filtros['fecha_fin_sql']];
+
+    if (($filtros['min_minutos'] ?? null) !== null) {
+        $condiciones[] = 'r.minutos_colado >= ?';
+        $parametros[] = $filtros['min_minutos'];
+    }
+    if (($filtros['max_minutos'] ?? null) !== null) {
+        $condiciones[] = 'r.minutos_colado <= ?';
+        $parametros[] = $filtros['max_minutos'];
+    }
+
+    if ($incluirVer && ($filtros['ver'] ?? '') === 'sin_cliente') {
+        $condiciones[] = 'r.id_cliente IS NULL';
+    } elseif ($incluirVer && ($filtros['ver'] ?? '') === 'sin_planta') {
+        $condiciones[] = isset(columnasTabla($pdo, 'tb_remisiones')['planta_crm'])
+            ? "(r.planta_crm IS NULL OR TRIM(r.planta_crm) = '')"
+            : '1 = 1';
+    }
+
+    return [$condiciones, $parametros];
+}
+
+// Cuantas remisiones hay en el periodo: todas, sin cliente y sin planta (para los botones).
+function obtenerConteosListadoRemisiones(PDO $pdo, array $filtros): array
+{
+    [$condiciones, $parametros] = condicionesListadoRemisiones($pdo, $filtros, false);
+    $sinPlanta = isset(columnasTabla($pdo, 'tb_remisiones')['planta_crm'])
+        ? "SUM(CASE WHEN r.planta_crm IS NULL OR TRIM(r.planta_crm) = '' THEN 1 ELSE 0 END)"
+        : 'COUNT(*)';
+
+    $stmt = $pdo->prepare(
+        "SELECT COUNT(*) AS todas,
+                SUM(CASE WHEN r.id_cliente IS NULL THEN 1 ELSE 0 END) AS sin_cliente,
+                $sinPlanta AS sin_planta
+         FROM tb_remisiones r
+         WHERE " . implode(' AND ', $condiciones)
+    );
+    $stmt->execute($parametros);
+    $fila = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+
+    return [
+        'todas' => (int) ($fila['todas'] ?? 0),
+        'sin_cliente' => (int) ($fila['sin_cliente'] ?? 0),
+        'sin_planta' => (int) ($fila['sin_planta'] ?? 0),
     ];
 }
 
@@ -199,19 +256,7 @@ function obtenerRemisiones(PDO $pdo, ?array $filtros = null, int $limite = 1000)
     $parametros = [];
 
     if ($filtros) {
-        $condiciones = ['r.hora_inicio >= ?', 'r.hora_inicio < ?'];
-        $parametros[] = $filtros['fecha_inicio_sql'];
-        $parametros[] = $filtros['fecha_fin_sql'];
-
-        if (($filtros['min_minutos'] ?? null) !== null) {
-            $condiciones[] = 'r.minutos_colado >= ?';
-            $parametros[] = $filtros['min_minutos'];
-        }
-        if (($filtros['max_minutos'] ?? null) !== null) {
-            $condiciones[] = 'r.minutos_colado <= ?';
-            $parametros[] = $filtros['max_minutos'];
-        }
-
+        [$condiciones, $parametros] = condicionesListadoRemisiones($pdo, $filtros);
         $where = 'WHERE ' . implode(' AND ', $condiciones);
     }
 

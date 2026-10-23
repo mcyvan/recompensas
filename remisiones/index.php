@@ -23,6 +23,9 @@ $tabActivo = in_array($tabSolicitado, ['reportes', 'conciliacion', 'produccion',
 // carga y cambiar de pestana o de fecha tardaba varios segundos.
 $filtrosListado = filtrosListadoRemisiones($_GET);
 $remisiones = $tabActivo === 'remisiones' ? obtenerRemisiones($pdo, $filtrosListado) : [];
+$conteosListado = $tabActivo === 'remisiones'
+    ? obtenerConteosListadoRemisiones($pdo, $filtrosListado)
+    : ['todas' => 0, 'sin_cliente' => 0, 'sin_planta' => 0];
 $csrf = $_SESSION['csrf_remisiones'];
 $puedeAdministrar = puedeAdministrarRemisiones();
 $puedeEliminarRemisiones = ($_SESSION['rol'] ?? '') === 'ADMINISTRADOR';
@@ -258,6 +261,7 @@ if ($tabActivo === 'chofer') {
                                 <div class="tab-pane fade <?= $tabActivo === 'remisiones' ? 'show active' : '' ?>" id="panel-remisiones" role="tabpanel" aria-labelledby="tab-remisiones" <?= $tabActivo !== 'remisiones' ? 'hidden' : '' ?>>
                                     <form class="row g-3 align-items-end mb-3" method="GET" action="index.php">
                                         <input type="hidden" name="tab" value="remisiones">
+                                        <input type="hidden" name="lista_ver" value="<?= htmlspecialchars($filtrosListado['ver'], ENT_QUOTES, 'UTF-8') ?>">
                                         <div class="col-md-2">
                                             <label class="form-label"><b>Fecha inicio</b></label>
                                             <input type="date" class="form-control" name="lista_fecha_inicio" value="<?= htmlspecialchars($filtrosListado['fecha_inicio'], ENT_QUOTES, 'UTF-8') ?>">
@@ -290,6 +294,33 @@ if ($tabActivo === 'chofer') {
                                             </a>
                                         </div>
                                     </form>
+                                    <?php
+                                    $botonesListado = [
+                                        '' => ['Todas', $conteosListado['todas'], 'bi-list-ul', 'btn-outline-primary'],
+                                        'sin_cliente' => ['Sin cliente', $conteosListado['sin_cliente'], 'bi-person-x', 'btn-outline-danger'],
+                                        'sin_planta' => ['Sin planta', $conteosListado['sin_planta'], 'bi-building-x', 'btn-outline-warning'],
+                                    ];
+                                    ?>
+                                    <div class="btn-group mb-3" role="group" aria-label="Filtrar remisiones">
+                                        <?php foreach ($botonesListado as $clave => [$etiqueta, $cantidad, $icono, $claseBoton]):
+                                            $enlaceBoton = 'index.php?' . http_build_query(array_filter([
+                                                'tab' => 'remisiones',
+                                                'lista_fecha_inicio' => $filtrosListado['fecha_inicio'],
+                                                'lista_fecha_fin' => $filtrosListado['fecha_fin'],
+                                                'lista_min_minutos' => $filtrosListado['min_minutos'],
+                                                'lista_max_minutos' => $filtrosListado['max_minutos'],
+                                                'lista_ver' => $clave,
+                                            ], static fn($valor) => $valor !== null && $valor !== ''));
+                                            $activo = $filtrosListado['ver'] === $clave;
+                                        ?>
+                                            <a href="<?= htmlspecialchars($enlaceBoton, ENT_QUOTES, 'UTF-8') ?>"
+                                               class="btn <?= $claseBoton ?> <?= $activo ? 'active' : '' ?>"
+                                               <?= $activo ? 'aria-pressed="true"' : '' ?>>
+                                                <i class="bi <?= $icono ?>"></i> <?= $etiqueta ?>
+                                                <span class="badge text-bg-secondary ms-1"><?= number_format($cantidad) ?></span>
+                                            </a>
+                                        <?php endforeach; ?>
+                                    </div>
                                     <div class="table-responsive">
                                 <table id="tablaRemisiones" class="table table-striped table-bordered align-middle" style="width:100%">
                                     <thead>
