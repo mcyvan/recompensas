@@ -4,33 +4,70 @@ include("../app/functions/auth.php");
 /** @var PDO $pdo */
 /** @var string $URL */
 verificarSesion();
+$rolSesion = $_SESSION['rol'] ?? '';
+$puedeElegirVendedorCliente = in_array($rolSesion, ["ADMINISTRADOR", "ADMINISTRACION", "LOGISTICA"], true);
 
 // Obtener los datos del formulario
 $nombre = strtoupper(trim($_POST['nombre']));
 $apellido_p = strtoupper(trim($_POST['apellido_p']));
 $apellido_m = strtoupper(trim($_POST['apellido_m']));
-$correo = strtolower(trim($_POST['correo']));
 $telefono = trim($_POST['telefono']);
+$sin_correo = isset($_POST['sin_correo']) && $_POST['sin_correo'] === '1';
+$correo = $sin_correo
+    ? 'sin-correo-' . preg_replace('/[^0-9]/', '', $telefono) . '@clientes.local'
+    : strtolower(trim($_POST['correo'] ?? ''));
 $fecha_nacimiento = $_POST['fecha_nacimiento'];
 $fecha_registro = date('Y-m-d');
-$usuario = strtoupper(trim($_SESSION['id_usuario_login']));
 $id_vendedor = $_SESSION['id_usuario_login'] ?? null; // Si no viene del formulario, lo tomamos de la sesión
 $token_publico = bin2hex(random_bytes(32));
 
-if ($_SESSION['rol'] == "ADMINISTRADOR" || $_SESSION['rol'] == "ADMINISTRACION") {
-    $usuario = strtoupper(trim($id_vendedor));
+if ($puedeElegirVendedorCliente) {
+    $id_vendedor = (int) ($_POST['id_vendedor'] ?? 0);
 }
 
 
-if (empty($nombre) || empty($apellido_p) || empty($apellido_m) || empty($correo) || empty($telefono) || empty($fecha_nacimiento)) {
+if (empty($nombre) || empty($apellido_p) || empty($apellido_m) || empty($telefono) || empty($fecha_nacimiento) || (!$sin_correo && empty($correo))) {
     $_SESSION['mensaje_registro_cliente_existe'] = "Todos los campos son obligatorios y no pueden estar vacíos";
     header('Location: ' . $URL . '/clientes/registrar_cliente.php');
     exit(); // ¡Importante! Detiene la ejecución
 }
 
+if (!$sin_correo && !filter_var($correo, FILTER_VALIDATE_EMAIL)) {
+    $_SESSION['mensaje_registro_cliente_existe'] = "Ingresa un correo valido o selecciona Sin correo electronico";
+    header('Location: ' . $URL . '/clientes/registrar_cliente.php');
+    exit();
+}
+
+if ($puedeElegirVendedorCliente && $id_vendedor <= 0) {
+    $_SESSION['mensaje_registro_cliente_existe'] = "Selecciona el vendedor del cliente";
+    header('Location: ' . $URL . '/clientes/registrar_cliente.php');
+    exit();
+}
+
 try {
     // Iniciamos la transacción para "bloquear" el proceso para este usuario
     $pdo->beginTransaction();
+
+    if ($puedeElegirVendedorCliente) {
+        $consulta_vendedor = $pdo->prepare(
+            "SELECT u.id_usuario
+             FROM tb_usuarios u
+             INNER JOIN tb_usuarios_detalle ud ON ud.id_usuario = u.id_usuario
+             INNER JOIN tb_roles r ON r.id_rol = ud.id_rol
+             WHERE u.id_usuario = :id_vendedor
+               AND r.id_rol = 2
+               AND u.estatus = 1
+             LIMIT 1"
+        );
+        $consulta_vendedor->execute([':id_vendedor' => $id_vendedor]);
+
+        if (!$consulta_vendedor->fetch()) {
+            $pdo->rollBack();
+            $_SESSION['mensaje_registro_cliente_existe'] = "El vendedor seleccionado no es valido";
+            header('Location: ' . $URL . '/clientes/registrar_cliente.php');
+            exit();
+        }
+    }
 
     // 1. Verificación de existencia
     $consulta_login = $pdo->prepare("SELECT id_cliente FROM tb_clientes WHERE correo = :correo OR telefono = :telefono");
@@ -39,12 +76,12 @@ try {
     if ($consulta_login->fetch()) {
         $pdo->rollBack(); // Cancelamos si ya existe
         $_SESSION['mensaje_registro_cliente_existe'] = "El cliente ya existe";
-        if ($_SESSION['rol'] == "VENDEDOR") {
+        if ($rolSesion == "VENDEDOR") {
             header('Location: ' . $URL . '/vendedor/menu_vendedor.php');
-        } elseif ($_SESSION['rol'] == "ADMINISTRADOR" || $_SESSION['rol'] == "ADMINISTRACION") {
+        } else {
             header('Location: ' . $URL . '/clientes/registrar_cliente.php');
-            exit();
         }
+        exit();
     }
 
     // 2. Inserción
@@ -60,7 +97,7 @@ try {
         ':telefono' => $telefono,
         ':fecha_nacimiento' => $fecha_nacimiento,
         ':fecha_registro' => $fecha_registro,
-        ':id_usuario' => $usuario,
+        ':id_usuario' => $id_vendedor,
         ':token_publico' => $token_publico,
         ':estatus' => 1
     ]);
@@ -73,13 +110,16 @@ try {
     $pdo->commit();
 
     $_SESSION['mensaje_registro_clientes_correcto'] = "Cliente " . $nombre . " " . $apellido_p . " " . $apellido_m . " registrado correctamente con telefono: " . $telefono;
-    if ($_SESSION['rol'] == "VENDEDOR") {
+    if ($rolSesion == "VENDEDOR") {
         header('Location: ' . $URL . '/vendedor/menu_vendedor.php');
-    } elseif ($_SESSION['rol'] == "ADMINISTRADOR" || $_SESSION['rol'] == "ADMINISTRACION") {
+    } else {
         header('Location: ' . $URL . '/clientes/registrar_cliente.php');
-        exit();
     }
-} catch (Exception $e) {
-    $pdo->rollBack(); // Si algo falla, deshace todo
+    exit();
+} catch (Throwable $e) {
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack(); // Si algo falla, deshace todo
+    }
+
     die("Error al registrar: " . $e->getMessage());
 }

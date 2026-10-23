@@ -154,6 +154,14 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
                                                 </svg>
                                             </a>
                                         </div>
+                                        <div class="row justify-content-center text-center">
+                                            <a href="../premios/ver_premios.php" class="btn btn-success btn-square-lg mt-2">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="currentColor" class="bi bi-gift-fill" viewBox="0 0 16 16">
+                                                    <path d="M3 2.5a2.5 2.5 0 0 1 4.5-1.5L8 1.7l.5-.7A2.5 2.5 0 1 1 11 5H9v1h5.5a.5.5 0 0 1 .5.5V8H1V6.5a.5.5 0 0 1 .5-.5H7V5H5a2.5 2.5 0 0 1-2-2.5"/>
+                                                    <path d="M1 9v4.5A1.5 1.5 0 0 0 2.5 15H7V9zm8 0v6h4.5A1.5 1.5 0 0 0 15 13.5V9z"/>
+                                                </svg>
+                                            </a>
+                                        </div>
                                     </div>
                                 </div>
                             </div><!-- /.col -->
