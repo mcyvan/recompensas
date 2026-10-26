@@ -4,6 +4,7 @@ require_once("../app/functions/auth.php");
 require_once("../app/functions/remisiones.php");
 require_once("../app/functions/conciliacion_ventas.php");
 require_once("../app/functions/produccion_planta.php");
+require_once("../app/functions/samsara.php");
 
 verificarSesion();
 verificarPermisoRemisiones();
@@ -17,12 +18,49 @@ $mensajeError = $_SESSION['mensaje_remision_error'] ?? null;
 unset($_SESSION['mensaje_remision_correcto'], $_SESSION['mensaje_remision_error']);
 
 $tabSolicitado = (string) ($_GET['tab'] ?? '');
-$tabActivo = in_array($tabSolicitado, ['reportes', 'conciliacion', 'produccion', 'chofer'], true) ? $tabSolicitado : 'remisiones';
+$tabActivo = in_array($tabSolicitado, ['reportes', 'conciliacion', 'produccion', 'chofer', 'samsara'], true) ? $tabSolicitado : 'remisiones';
 
 // Cada pestana calcula solo lo suyo: antes se corrian todas las consultas en cada
 // carga y cambiar de pestana o de fecha tardaba varios segundos.
 $filtrosListado = filtrosListadoRemisiones($_GET);
+// Boton "Calcular tiempos GPS": consulta a Samsara el tiempo en obra de las remisiones del periodo y lo guarda.
+// Si el periodo es largo y no alcanza en una vuelta, avisa y se vuelve a presionar.
+if ($tabActivo === 'remisiones' && ($_GET['calcular_gps'] ?? '') === '1' && puedeAdministrarRemisiones()) {
+    set_time_limit(120);
+    // La pantalla llama esto una y otra vez (con gps_hasta = el dia por el que va) hasta que termina.
+    $hastaGps = (string) ($_GET['gps_hasta'] ?? '');
+    $hastaGps = preg_match('/^\d{4}-\d{2}-\d{2}$/', $hastaGps) && $hastaGps >= $filtrosListado['fecha_inicio'] && $hastaGps <= $filtrosListado['fecha_fin']
+        ? $hastaGps
+        : $filtrosListado['fecha_fin'];
+    $respuestaGps = ['completo' => false, 'siguiente_dia' => null, 'dias_restantes' => 0, 'error' => null];
+    try {
+        $calculo = calcularEstadiasPendientes($pdo, $filtrosListado['fecha_inicio'], $hastaGps, 20);
+        $respuestaGps['completo'] = $calculo['completo'];
+        $respuestaGps['siguiente_dia'] = $calculo['siguiente_dia'];
+        $respuestaGps['error'] = $calculo['error'];
+        if ($calculo['siguiente_dia']) {
+            $respuestaGps['dias_restantes'] = (int) round((strtotime($calculo['siguiente_dia']) - strtotime($filtrosListado['fecha_inicio'])) / 86400) + 1;
+        }
+    } catch (Throwable $e) {
+        error_log($e->getMessage());
+        $respuestaGps['error'] = $e->getMessage();
+    }
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode($respuestaGps, JSON_UNESCAPED_UNICODE);
+    exit();
+}
+
 $remisiones = $tabActivo === 'remisiones' ? obtenerRemisiones($pdo, $filtrosListado) : [];
+// Tiempo en obra segun GPS de las remisiones del listado (solo lo ya calculado; no se llama a Samsara aqui).
+$estadiasGps = [];
+foreach ($remisiones as $remisionGps) {
+    if (!empty($remisionGps['hora_fin'])) {
+        $analisisGps = samsaraAnalisisGuardado((int) $remisionGps['id_remision'], (string) $remisionGps['hora_inicio'], (string) $remisionGps['hora_fin']);
+        if ($analisisGps) {
+            $estadiasGps[(int) $remisionGps['id_remision']] = $analisisGps;
+        }
+    }
+}
 $conteosListado = $tabActivo === 'remisiones'
     ? obtenerConteosListadoRemisiones($pdo, $filtrosListado)
     : ['todas' => 0, 'sin_cliente' => 0, 'sin_planta' => 0, 'cortos' => 0];
@@ -133,6 +171,37 @@ if ($tabActivo === 'chofer') {
     } catch (PDOException $e) {
         error_log($e->getMessage());
         $errorChofer = true;
+    }
+}
+
+if ($tabActivo === 'samsara') {
+    // La primera vez que se compara un dia se consulta a Samsara camion por camion; despues queda guardado.
+    set_time_limit(300);
+    $fechaSamsaraInicio = (string) ($_GET['sam_fecha_inicio'] ?? '');
+    $fechaSamsaraFin = (string) ($_GET['sam_fecha_fin'] ?? '');
+    $fechaSamsaraInicio = preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaSamsaraInicio) ? $fechaSamsaraInicio : date('Y-m-d', strtotime('-1 day'));
+    $fechaSamsaraFin = preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaSamsaraFin) ? $fechaSamsaraFin : $fechaSamsaraInicio;
+    if ($fechaSamsaraInicio > $fechaSamsaraFin) {
+        [$fechaSamsaraInicio, $fechaSamsaraFin] = [$fechaSamsaraFin, $fechaSamsaraInicio];
+    }
+    $filtrosSamsara = [
+        'fecha_inicio' => $fechaSamsaraInicio,
+        'fecha_fin' => $fechaSamsaraFin,
+        'camion' => strtoupper(trim((string) ($_GET['sam_camion'] ?? ''))),
+    ];
+    $camionesSamsara = [];
+    $comparativoSamsara = ['remisiones' => [], 'recortado' => false, 'error' => null];
+
+    try {
+        $camionesSamsara = $pdo->query(
+            "SELECT DISTINCT camion_logistica FROM tb_remisiones
+             WHERE camion_logistica IS NOT NULL AND camion_logistica <> '' AND hora_inicio >= DATE_SUB(CURDATE(), INTERVAL 120 DAY)
+             ORDER BY camion_logistica"
+        )->fetchAll(PDO::FETCH_COLUMN);
+        $comparativoSamsara = obtenerComparativoEstadias($pdo, $filtrosSamsara['fecha_inicio'], $filtrosSamsara['fecha_fin'], $filtrosSamsara['camion']);
+    } catch (Throwable $e) {
+        error_log($e->getMessage());
+        $comparativoSamsara['error'] = 'No se pudo hacer la comparacion: ' . $e->getMessage();
     }
 }
 ?>
@@ -254,6 +323,11 @@ if ($tabActivo === 'chofer') {
                                         Chofer por dia
                                     </a>
                                 </li>
+                                <li class="nav-item" role="presentation">
+                                    <a class="nav-link <?= $tabActivo === 'samsara' ? 'active' : '' ?>" id="tab-samsara" href="index.php?tab=samsara" role="tab">
+                                        Estadia GPS
+                                    </a>
+                                </li>
                             </ul>
                         </div>
                         <div class="card-body">
@@ -297,7 +371,8 @@ if ($tabActivo === 'chofer') {
                                         'cortos' => ['Menos de ' . MINUTOS_COLADO_SOSPECHOSO . ' min', $conteosListado['cortos'], 'bi-exclamation-triangle', 'btn-outline-danger'],
                                     ];
                                     ?>
-                                    <div class="btn-group mb-3" role="group" aria-label="Filtrar remisiones">
+                                    <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+                                    <div class="btn-group" role="group" aria-label="Filtrar remisiones">
                                         <?php foreach ($botonesListado as $clave => [$etiqueta, $cantidad, $icono, $claseBoton]):
                                             $enlaceBoton = 'index.php?' . http_build_query(array_filter([
                                                 'tab' => 'remisiones',
@@ -317,6 +392,14 @@ if ($tabActivo === 'chofer') {
                                             </a>
                                         <?php endforeach; ?>
                                     </div>
+                                    <?php if ($puedeAdministrar): ?>
+                                        <a class="btn btn-outline-secondary" id="btnCalcularGps"
+                                           href="index.php?<?= htmlspecialchars(http_build_query(array_filter(array_merge($_GET, ['tab' => 'remisiones', 'lista_fecha_inicio' => $filtrosListado['fecha_inicio'], 'lista_fecha_fin' => $filtrosListado['fecha_fin'], 'calcular_gps' => '1']), static fn($v) => $v !== null && $v !== '')), ENT_QUOTES, 'UTF-8') ?>"
+                                           title="Consulta Samsara y guarda el tiempo en obra de las remisiones de este periodo, empezando por las mas recientes. Muestra el avance y recarga la tabla al terminar.">
+                                            <i class="bi bi-geo-alt"></i> Calcular tiempos GPS
+                                        </a>
+                                    <?php endif; ?>
+                                    </div>
                                     <div class="table-responsive">
                                 <table id="tablaRemisiones" class="table table-striped table-bordered align-middle" style="width:100%">
                                     <thead>
@@ -332,6 +415,7 @@ if ($tabActivo === 'chofer') {
                                             <th>Fecha inicio</th>
                                             <th>Fecha fin</th>
                                             <th>Tiempo</th>
+                                            <th title="Tiempo que el camion estuvo en la obra segun el GPS de Samsara (de que entra a la zona de obra a que sale, incluido el lavado)">Tiempo en obra (GPS)</th>
                                             <th>Chofer / Camion</th>
                                             <?php if ($puedeAdministrar): ?>
                                                 <th>Capturada por</th>
@@ -404,6 +488,32 @@ if ($tabActivo === 'chofer') {
                                                         </span>
                                                     <?php else: ?>
                                                         <span class="text-muted">-</span>
+                                                    <?php endif; ?>
+                                                </td>
+                                                <?php
+                                                $gps = $estadiasGps[(int) $remision['id_remision']] ?? null;
+                                                $gpsMin = $gps['samsara_min'] ?? null;
+                                                $gpsEstado = $gps['estado'] ?? null;
+                                                $gpsColor = ['concuerda' => 'success', 'samsara_mayor' => 'warning', 'samsara_menor' => 'danger'][$gpsEstado] ?? 'secondary';
+                                                $gpsTextoEstado = samsaraEtiquetasEstado()[$gpsEstado][0] ?? '';
+                                                ?>
+                                                <td data-order="<?= $gpsMin !== null ? (int) $gpsMin : -1 ?>">
+                                                    <?php if ($gpsMin !== null): ?>
+                                                        <span class="badge text-bg-<?= $gpsColor ?>"
+                                                              title="<?= htmlspecialchars(
+                                                                  'Llego a obra ' . date('H:i', (int) $gps['llegada']) . ' - salio ' . date('H:i', (int) $gps['salida'])
+                                                                  . ' | espero ' . $gps['espera_antes_min'] . ' min antes de iniciar | lavado y salida ' . $gps['despues_fin_min'] . ' min despues del fin'
+                                                                  . ' | diferencia ' . ($gps['diferencia_min'] > 0 ? '+' : '') . $gps['diferencia_min'] . ' min (esperado: descarga + ' . SAMSARA_LAVADO_MINUTOS . ' min de lavado)',
+                                                                  ENT_QUOTES,
+                                                                  'UTF-8'
+                                                              ) ?>">
+                                                            <?= htmlspecialchars(formatoTiempoRemision($gpsMin), ENT_QUOTES, 'UTF-8') ?>
+                                                        </span>
+                                                        <div class="small text-muted"><?= htmlspecialchars($gpsTextoEstado, ENT_QUOTES, 'UTF-8') ?></div>
+                                                    <?php elseif ($gps && in_array($gpsEstado, ['sin_movimiento', 'en_planta'], true)): ?>
+                                                        <span class="badge text-bg-dark" title="<?= $gpsEstado === 'sin_movimiento' ? 'El camion no se movio durante esta remision: probablemente tiene otro camion asignado' : 'La descarga se marco con el camion dentro de la planta' ?>"><?= htmlspecialchars($gpsTextoEstado, ENT_QUOTES, 'UTF-8') ?></span>
+                                                    <?php else: ?>
+                                                        <span class="text-muted" title="<?= $gps ? 'Sin datos de GPS para esta remision' : 'GPS sin calcular' ?>">-</span>
                                                     <?php endif; ?>
                                                 </td>
                                                 <td>
@@ -797,6 +907,9 @@ if ($tabActivo === 'chofer') {
                                 <div class="tab-pane fade <?= $tabActivo === 'chofer' ? 'show active' : '' ?>" id="panel-chofer" role="tabpanel" aria-labelledby="tab-chofer" <?= $tabActivo !== 'chofer' ? 'hidden' : '' ?>>
                                     <?php if ($tabActivo === 'chofer') { include __DIR__ . '/../conciliacion/chofer_dia_panel.php'; } ?>
                                 </div>
+                                <div class="tab-pane fade <?= $tabActivo === 'samsara' ? 'show active' : '' ?>" id="panel-samsara" role="tabpanel" aria-labelledby="tab-samsara" <?= $tabActivo !== 'samsara' ? 'hidden' : '' ?>>
+                                    <?php if ($tabActivo === 'samsara') { include __DIR__ . '/../conciliacion/samsara_panel.php'; } ?>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -832,6 +945,72 @@ if ($tabActivo === 'chofer') {
                     url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json'
                 }
             });
+
+            // "Calcular tiempos GPS": pide a Samsara el tiempo en obra de las remisiones del periodo, de la mas reciente a la
+            // mas vieja, y repite hasta terminar (cada vuelta tiene un limite de tiempo en el servidor). Al final recarga la tabla.
+            const botonCalcularGps = document.getElementById('btnCalcularGps');
+            if (botonCalcularGps) {
+                botonCalcularGps.addEventListener('click', async function(evento) {
+                    evento.preventDefault();
+                    const direccion = new URL(botonCalcularGps.href, window.location.href);
+                    let hasta = '';
+                    let diasInicio = null;
+
+                    Swal.fire({
+                        title: 'Calculando tiempos GPS...',
+                        html: '<div id="avanceGps">Consultando a Samsara. Esto puede tardar unos minutos si el periodo es largo; no cierres la pagina.</div>',
+                        allowOutsideClick: false,
+                        allowEscapeKey: false,
+                        showConfirmButton: false,
+                        didOpen: () => Swal.showLoading()
+                    });
+
+                    try {
+                        while (true) {
+                            if (hasta) {
+                                direccion.searchParams.set('gps_hasta', hasta);
+                            }
+                            const respuesta = await fetch(direccion.toString(), {
+                                credentials: 'same-origin',
+                                headers: {
+                                    'Accept': 'application/json'
+                                }
+                            });
+                            const texto = await respuesta.text();
+                            let datos;
+                            try {
+                                datos = JSON.parse(texto);
+                            } catch (errorLectura) {
+                                throw new Error('El servidor no respondio como se esperaba (puede que se haya acabado el tiempo). Intenta de nuevo.');
+                            }
+                            if (datos.error) {
+                                throw new Error(datos.error);
+                            }
+                            if (datos.completo) {
+                                break;
+                            }
+                            hasta = datos.siguiente_dia;
+                            diasInicio = diasInicio ?? datos.dias_restantes;
+                            const avance = document.getElementById('avanceGps');
+                            if (avance) {
+                                avance.textContent = 'Faltan ' + datos.dias_restantes + ' dia(s) por calcular de ' + diasInicio + '...';
+                            }
+                        }
+                        window.location.href = direccion.pathname + '?' + (function() {
+                            const parametros = new URLSearchParams(direccion.search);
+                            parametros.delete('calcular_gps');
+                            parametros.delete('gps_hasta');
+                            return parametros.toString();
+                        })();
+                    } catch (error) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'No se pudieron calcular los tiempos GPS',
+                            text: error.message
+                        });
+                    }
+                });
+            }
 
             $('#tablaReporteVendedores').DataTable({
                 paging: false,

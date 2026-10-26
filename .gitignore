@@ -5,3 +5,7 @@
 
 # Piloto de la captura "solo QR" del operador (lista de usuarios, distinta por ambiente)
 /app/config/operador_qr_piloto.local.php
+
+# Llave de la API de Samsara y cache del comparativo de estadias (distintos por ambiente)
+/app/config/samsara.local.php
+/app/cache/
