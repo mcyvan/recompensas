@@ -347,7 +347,8 @@ if (operadorUsaFlujoQr()) {
                 conceptos.push({
                     articulo,
                     cantidad: normalizarDecimal(cantidadTexto),
-                    esConcreto: /\bCONCRETO\b/.test(articulo)
+                    // Productos que salen en revolvedora: concreto y, como en las ventas, mortero, TERMOC y THERMO.
+                    esConcreto: /\bCONCRETO\b/.test(articulo) || /^(MORTERO|TERMOC|THERMO)\b/.test(articulo)
                 });
 
                 posicion = finConcepto;
