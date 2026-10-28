@@ -45,8 +45,25 @@ if ($tabActivo === 'remisiones' && ($_GET['calcular_gps'] ?? '') === '1' && pued
         error_log($e->getMessage());
         $respuestaGps['error'] = $e->getMessage();
     }
-    header('Content-Type: application/json; charset=utf-8');
-    echo json_encode($respuestaGps, JSON_UNESCAPED_UNICODE);
+    if (($_GET['gps_ajax'] ?? '') === '1') {
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode($respuestaGps, JSON_UNESCAPED_UNICODE);
+        exit();
+    }
+
+    // Sin la pantalla de avance (pagina abierta de antes, JavaScript que no corrio, enlace abierto directo): se calcula
+    // lo que alcance, se avisa y se regresa a la tabla.
+    if ($respuestaGps['error']) {
+        $_SESSION['mensaje_remision_error'] = 'No se pudieron calcular los tiempos de GPS: ' . $respuestaGps['error'];
+    } elseif ($respuestaGps['completo']) {
+        $_SESSION['mensaje_remision_correcto'] = 'Tiempos de GPS calculados para todo el periodo.';
+    } else {
+        $_SESSION['mensaje_remision_correcto'] = 'Se calcularon los tiempos de GPS de las remisiones mas recientes; faltan ' . $respuestaGps['dias_restantes']
+            . ' dia(s) del periodo. Vuelve a presionar "Calcular tiempos GPS" para seguir.';
+    }
+    $sinCalcular = $_GET;
+    unset($sinCalcular['calcular_gps'], $sinCalcular['gps_hasta'], $sinCalcular['gps_ajax']);
+    header('Location: index.php?' . http_build_query($sinCalcular));
     exit();
 }
 
@@ -953,6 +970,7 @@ if ($tabActivo === 'samsara') {
                 botonCalcularGps.addEventListener('click', async function(evento) {
                     evento.preventDefault();
                     const direccion = new URL(botonCalcularGps.href, window.location.href);
+                    direccion.searchParams.set('gps_ajax', '1');
                     let hasta = '';
                     let diasInicio = null;
 
@@ -1000,6 +1018,7 @@ if ($tabActivo === 'samsara') {
                             const parametros = new URLSearchParams(direccion.search);
                             parametros.delete('calcular_gps');
                             parametros.delete('gps_hasta');
+                            parametros.delete('gps_ajax');
                             return parametros.toString();
                         })();
                     } catch (error) {
