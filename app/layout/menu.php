@@ -68,6 +68,13 @@ $remisionesManualesDosificadorActivas = remisionesManualesDosificadorHabilitadas
               </li>
             </ul>
           </li>
+          <li class="nav-header">VENTAS</li>
+          <li class="nav-item">
+            <a href="../prospectos/index.php" class="nav-link">
+              <i class="bi bi-bullseye"></i>
+              <p>PROSPECCION DE OBRAS</p>
+            </a>
+          </li>
           <li class="nav-header">REMISIONES</li>
           <li class="nav-item">
             <a href="../remisiones/index.php" class="nav-link">
@@ -246,6 +253,12 @@ $remisionesManualesDosificadorActivas = remisionesManualesDosificadorHabilitadas
             <a href="../clientes/registrar_cliente.php" class="nav-link">
               <i class="bi bi-window-plus"></i>
               <p>CLIENTES</p>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="../prospectos/index.php" class="nav-link">
+              <i class="bi bi-bullseye"></i>
+              <p>PROSPECCION DE OBRAS</p>
             </a>
           </li>
           <li class="nav-header">PREMIOS</li>

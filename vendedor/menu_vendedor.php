@@ -78,6 +78,13 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
             border-radius: 10px;
             font-size: 18px;
         }
+    
+        /* Cuadricula 2x2: cada boton ocupa la mitad del ancho disponible, tambien en celular */
+        .menu-vendedor-cuadricula > div { flex: 0 0 calc(50% - 4px); }
+        .menu-vendedor-cuadricula .btn-square-lg { width: 100%; height: auto; aspect-ratio: 1 / 1; flex-direction: column; gap: 6px; }
+        .menu-vendedor-cuadricula .btn-square-lg svg { width: 48px; height: 48px; }
+        .menu-vendedor-cuadricula .btn-square-lg .bi-bullseye { font-size: 48px !important; }
+        .menu-vendedor-texto { order: 2; font-size: 15px; font-weight: 600; line-height: 1.1; }
     </style>
 </head>
 
@@ -138,28 +145,33 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
                                     <div class="row">
                                         <h5 class="card-title">MENU VENDEDOR</h5>
                                     </div>
-                                    <div class="d-grid gap-2 col-6 mx-auto justify-content-center">
-                                        <div class="row justify-content-center text-center">
-                                            <a href="../clientes/registrar_cliente.php" class="btn btn-primary btn-square-lg mt-2">
+                                    <div class="menu-vendedor-cuadricula d-flex flex-wrap gap-2 justify-content-center mx-auto" style="max-width: 320px;">
+                                        <div class="text-center">
+                                            <a href="../clientes/registrar_cliente.php" class="btn btn-primary btn-square-lg mt-2"><span class="menu-vendedor-texto">Alta Aliado</span>
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="currentColor" class="bi bi-person-plus-fill" viewBox="0 0 16 16">
                                                     <path d="M1 14s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6" />
                                                     <path fill-rule="evenodd" d="M13.5 5a.5.5 0 0 1 .5.5V7h1.5a.5.5 0 0 1 0 1H14v1.5a.5.5 0 0 1-1 0V8h-1.5a.5.5 0 0 1 0-1H13V5.5a.5.5 0 0 1 .5-.5" />
                                                 </svg>
                                             </a>
                                         </div>
-                                        <div class="row justify-content-center text-center">
-                                            <a href="../clientes/consultar_puntos.php" class="btn btn-warning btn-square-lg mt-2">
+                                        <div class="text-center">
+                                            <a href="../clientes/consultar_puntos.php" class="btn btn-warning btn-square-lg mt-2"><span class="menu-vendedor-texto">Consulta puntos</span>
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="currentColor" class="bi bi-search" viewBox="0 0 16 16">
                                                     <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0" />
                                                 </svg>
                                             </a>
                                         </div>
-                                        <div class="row justify-content-center text-center">
-                                            <a href="../premios/ver_premios.php" class="btn btn-success btn-square-lg mt-2">
+                                        <div class="text-center">
+                                            <a href="../premios/ver_premios.php" class="btn btn-success btn-square-lg mt-2"><span class="menu-vendedor-texto">Premios</span>
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="currentColor" class="bi bi-gift-fill" viewBox="0 0 16 16">
                                                     <path d="M3 2.5a2.5 2.5 0 0 1 4.5-1.5L8 1.7l.5-.7A2.5 2.5 0 1 1 11 5H9v1h5.5a.5.5 0 0 1 .5.5V8H1V6.5a.5.5 0 0 1 .5-.5H7V5H5a2.5 2.5 0 0 1-2-2.5"/>
                                                     <path d="M1 9v4.5A1.5 1.5 0 0 0 2.5 15H7V9zm8 0v6h4.5A1.5 1.5 0 0 0 15 13.5V9z"/>
                                                 </svg>
+                                            </a>
+                                        </div>
+                                        <div class="text-center">
+                                            <a href="../prospectos/index.php" class="btn btn-info btn-square-lg mt-2" title="Prospeccion de obras"><span class="menu-vendedor-texto">Prospectos</span>
+                                                <i class="bi bi-bullseye" style="font-size: 64px; line-height: 1;"></i>
                                             </a>
                                         </div>
                                     </div>
