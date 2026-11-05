@@ -134,9 +134,6 @@ $porcentajeProduccion = $totalEsperadasProduccion > 0 ? ($totalRegistradasProduc
                             </td>
                         </tr>
                     <?php endforeach; ?>
-                    <?php if (!$porOperadorProduccion): ?>
-                        <tr><td colspan="7" class="text-center text-muted">Sin datos en el periodo.</td></tr>
-                    <?php endif; ?>
                 </tbody>
             </table>
         </div>

@@ -18,8 +18,8 @@ $etiquetaDia = static fn(array $d) => $d['dia'] . ' ' . date('d/m', strtotime($d
         <input type="hidden" name="tab" value="chofer">
         <div class="col-md-4">
             <label class="form-label"><b>Chofer</b></label>
-            <select class="form-select" name="chofer_operador" required>
-                <option value="">Selecciona un chofer</option>
+            <select class="form-select" name="chofer_operador">
+                <option value="">Todos los choferes (solo promedios)</option>
                 <?php foreach ($operadoresProduccion as $nombreOperador): ?>
                     <option value="<?= htmlspecialchars($nombreOperador, ENT_QUOTES, 'UTF-8') ?>" <?= $choferSeleccionado === $nombreOperador ? 'selected' : '' ?>>
                         <?= htmlspecialchars($nombreOperador, ENT_QUOTES, 'UTF-8') ?>
