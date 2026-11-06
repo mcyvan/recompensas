@@ -94,12 +94,14 @@ try {
             $pdo->beginTransaction();
             $stmt = $pdo->prepare(
                 'INSERT INTO tb_prospectos_obras
-                    (id_usuario, cliente, proyecto, tipo_obra, tipos_concreto, volumen_m3, fecha_inicio, fecha_fin,
-                     estatus, competidor, comentarios, activo, fecha_registro, fecha_actualizacion)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)'
+                    (id_usuario, cliente, telefono, proyecto, direccion, latitud, longitud, tipo_obra, tipos_concreto, volumen_m3,
+                     fecha_inicio, fecha_fin, estatus, competidor, comentarios, activo, fecha_registro, fecha_actualizacion)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)'
             );
             $stmt->execute([
-                $duenio, $datos['cliente'], $datos['proyecto'], $datos['tipo_obra'], $datos['tipos_concreto'],
+                $duenio, $datos['cliente'], $datos['telefono'] !== '' ? $datos['telefono'] : null, $datos['proyecto'],
+                $datos['direccion'] !== '' ? $datos['direccion'] : null, $datos['latitud'], $datos['longitud'],
+                $datos['tipo_obra'], $datos['tipos_concreto'],
                 $datos['volumen_m3'], $datos['fecha_inicio'], $datos['fecha_fin'], $estatus,
                 $datos['competidor'] !== '' ? $datos['competidor'] : null,
                 $datos['comentarios'] !== '' ? $datos['comentarios'] : null, $ahora, $ahora,
@@ -115,12 +117,15 @@ try {
 
         $stmt = $pdo->prepare(
             'UPDATE tb_prospectos_obras
-             SET cliente = ?, proyecto = ?, tipo_obra = ?, tipos_concreto = ?, volumen_m3 = ?,
-                 fecha_inicio = ?, fecha_fin = ?, competidor = ?, comentarios = ?, fecha_actualizacion = ?
+             SET cliente = ?, telefono = ?, proyecto = ?, direccion = ?, latitud = ?, longitud = ?, tipo_obra = ?,
+                 tipos_concreto = ?, volumen_m3 = ?, fecha_inicio = ?, fecha_fin = ?, competidor = ?, comentarios = ?,
+                 fecha_actualizacion = ?
              WHERE id_prospecto = ?'
         );
         $stmt->execute([
-            $datos['cliente'], $datos['proyecto'], $datos['tipo_obra'], $datos['tipos_concreto'], $datos['volumen_m3'],
+            $datos['cliente'], $datos['telefono'] !== '' ? $datos['telefono'] : null, $datos['proyecto'],
+            $datos['direccion'] !== '' ? $datos['direccion'] : null, $datos['latitud'], $datos['longitud'],
+            $datos['tipo_obra'], $datos['tipos_concreto'], $datos['volumen_m3'],
             $datos['fecha_inicio'], $datos['fecha_fin'],
             // En una obra ganada el competidor es siempre la empresa; no se toca desde la edicion.
             $actual['estatus'] === 'GANADA' ? $actual['competidor'] : ($datos['competidor'] !== '' ? $datos['competidor'] : null),
@@ -128,7 +133,11 @@ try {
             (int) $actual['id_prospecto'],
         ]);
         registrarBitacoraCambios($pdo, 'PROSPECTO', (int) $actual['id_prospecto'], 'EDITAR', $actual, [
-            'cliente' => $datos['cliente'], 'proyecto' => $datos['proyecto'], 'tipo_obra' => $datos['tipo_obra'],
+            'cliente' => $datos['cliente'], 'telefono' => $datos['telefono'] !== '' ? $datos['telefono'] : null,
+            'proyecto' => $datos['proyecto'], 'tipo_obra' => $datos['tipo_obra'],
+            'direccion' => $datos['direccion'] !== '' ? $datos['direccion'] : null,
+            'latitud' => $datos['latitud'] !== null ? number_format($datos['latitud'], 7, '.', '') : null,
+            'longitud' => $datos['longitud'] !== null ? number_format($datos['longitud'], 7, '.', '') : null,
             'tipos_concreto' => $datos['tipos_concreto'], 'volumen_m3' => number_format($datos['volumen_m3'], 2, '.', ''),
             'fecha_inicio' => $datos['fecha_inicio'], 'fecha_fin' => $datos['fecha_fin'],
         ]);
@@ -142,16 +151,19 @@ try {
             respuestaProspecto(['ok' => false, 'error' => 'La nota es muy larga (maximo 2000 caracteres).'], 422);
         }
 
-        [$estatus, $motivo, $competidor, $errores] = prospectoValidarEstatus(
+        [$estatus, $motivo, $detalleMotivo, $competidor, $errores] = prospectoValidarEstatus(
             (string) ($_POST['estatus'] ?? ''),
             (string) ($_POST['motivo_perdida'] ?? ''),
+            (string) ($_POST['motivo_detalle'] ?? ''),
             (string) ($_POST['competidor'] ?? '')
         );
         if (!$errores && mb_strlen((string) $competidor) > 80) {
             $errores[] = 'El competidor es muy largo (maximo 80 caracteres).';
         }
         $cambioEstatus = $estatus !== $prospecto['estatus'];
-        if (!$errores && !$cambioEstatus && $nota === '') {
+        // En una obra ya perdida, corregir el motivo tambien cuenta como movimiento.
+        $cambioMotivo = $motivo !== $prospecto['motivo_perdida'] || $detalleMotivo !== $prospecto['motivo_detalle'];
+        if (!$errores && !$cambioEstatus && !$cambioMotivo && $nota === '') {
             $errores[] = 'Escribe una nota o cambia el estatus.';
         }
         if ($errores) {
@@ -166,10 +178,10 @@ try {
         $pdo->beginTransaction();
         $stmt = $pdo->prepare(
             'UPDATE tb_prospectos_obras
-             SET estatus = ?, motivo_perdida = ?, competidor = ?, fecha_actualizacion = ?
+             SET estatus = ?, motivo_perdida = ?, motivo_detalle = ?, competidor = ?, fecha_actualizacion = ?
              WHERE id_prospecto = ?'
         );
-        $stmt->execute([$estatus, $motivo, $competidorFinal, date('Y-m-d H:i:s'), (int) $prospecto['id_prospecto']]);
+        $stmt->execute([$estatus, $motivo, $detalleMotivo, $competidorFinal, date('Y-m-d H:i:s'), (int) $prospecto['id_prospecto']]);
         prospectoRegistrarSeguimiento(
             $pdo,
             (int) $prospecto['id_prospecto'],
@@ -179,9 +191,10 @@ try {
         );
         $pdo->commit();
 
-        if ($cambioEstatus) {
+        if ($cambioEstatus || $cambioMotivo) {
             registrarBitacoraCambios($pdo, 'PROSPECTO', (int) $prospecto['id_prospecto'], 'ESTATUS', $prospecto, [
-                'estatus' => $estatus, 'motivo_perdida' => $motivo, 'competidor' => $competidorFinal,
+                'estatus' => $estatus, 'motivo_perdida' => $motivo, 'motivo_detalle' => $detalleMotivo,
+                'competidor' => $competidorFinal,
             ]);
         }
         respuestaProspecto(['ok' => true]);

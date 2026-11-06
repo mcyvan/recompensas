@@ -4,7 +4,7 @@
 // - Un prospecto es una obra nueva que un vendedor esta cotizando.
 // - El vendedor solo ve y edita los suyos; ADMINISTRADOR y ADMINISTRACION ven todos.
 // - Todo cambio de estatus o nota queda en tb_prospectos_seguimiento.
-// - Al marcar PERDIDA es obligatorio el motivo (y el competidor si se la dio otro).
+// - Al marcar PERDIDA es obligatorio elegir un motivo de la lista; si es OTRO, hay que escribirlo.
 
 const PROSPECTO_ESTATUS = [
     'NUEVO' => ['Nuevo', 'secondary'],
@@ -20,16 +20,22 @@ const PROSPECTO_ESTATUS_ABIERTOS = ['NUEVO', 'COTIZACION_ENTREGADA', 'EN_REVISIO
 
 const PROSPECTO_TIPOS_OBRA = ['COMERCIAL', 'INDUSTRIAL', 'INFRAESTRUCTURA', 'VIVIENDA EN SERIE', 'PARTICULAR'];
 
-const PROSPECTO_MOTIVO_COMPETIDOR = 'SE LA DIERON A UN COMPETIDOR';
+// Motivos estandar de obra perdida: se eligen de la lista para poder compararlos entre vendedores.
+// Solo OTRO permite escribir un detalle (tb_prospectos_obras.motivo_detalle).
+const PROSPECTO_MOTIVO_OTRO = 'OTRO';
 
 const PROSPECTO_MOTIVOS_PERDIDA = [
     'PRECIO',
-    'PLAZO DE PAGO O CREDITO',
-    PROSPECTO_MOTIVO_COMPETIDOR,
-    'PROYECTO CANCELADO O POSPUESTO',
-    'EL CLIENTE LO RESUELVE POR OTRO MEDIO',
-    'SIN RESPUESTA DEL CLIENTE',
-    'OTRO',
+    'CREDITO / CONDICIONES DE PAGO',
+    'CALIDAD / ESPECIFICACIONES TECNICAS',
+    'DISPONIBILIDAD DE PRODUCTO',
+    'CAPACIDAD DE SUMINISTRO',
+    'TIEMPO DE RESPUESTA',
+    'RELACION COMERCIAL EXISTENTE',
+    'CLIENTE TRABAJA EXCLUSIVAMENTE CON OTRO PROVEEDOR',
+    'PROYECTO CANCELADO O DETENIDO',
+    'NO SE LOGRO CONTACTAR AL RESPONSABLE',
+    PROSPECTO_MOTIVO_OTRO,
 ];
 
 const PROSPECTO_COMPETIDORES = [
@@ -81,6 +87,21 @@ function prospectoTexto(mixed $valor): string
     return mb_strtoupper((string) $valor, 'UTF-8');
 }
 
+// Telefono de contacto: se guardan solo los 10 digitos (acepta espacios, guiones, parentesis y lada +52).
+// Devuelve '' si viene vacio y false si no son 10 digitos.
+function prospectoTelefono(mixed $valor): string|false
+{
+    $digitos = preg_replace('/\D/', '', (string) $valor);
+    if ($digitos === '') {
+        return trim((string) $valor) === '' ? '' : false;
+    }
+    if (strlen($digitos) === 12 && str_starts_with($digitos, '52')) {
+        $digitos = substr($digitos, 2);
+    }
+
+    return strlen($digitos) === 10 ? $digitos : false;
+}
+
 function prospectoFechaValida(mixed $valor): ?string
 {
     $valor = trim((string) $valor);
@@ -90,6 +111,51 @@ function prospectoFechaValida(mixed $valor): ?string
     $fecha = DateTime::createFromFormat('Y-m-d', $valor);
 
     return ($fecha && $fecha->format('Y-m-d') === $valor) ? $valor : null;
+}
+
+// Interpreta lo que el vendedor puso en "Ubicacion": coordenadas ("28.6353, -106.0889") o un enlace
+// de Google Maps que las traiga. Devuelve [latitud, longitud], null si viene vacio o false si no se entiende.
+// Los enlaces cortos (maps.app.goo.gl) no traen coordenadas y no se siguen desde el servidor.
+function prospectoLeerUbicacion(string $texto): array|null|false
+{
+    $texto = trim(urldecode($texto));
+    if ($texto === '') {
+        return null;
+    }
+
+    $patrones = [
+        '/@(-?\d{1,3}\.\d+),\s*(-?\d{1,3}\.\d+)/',
+        '/!3d(-?\d{1,3}\.\d+)!4d(-?\d{1,3}\.\d+)/',
+        '/[?&](?:q|ll|query|destination)=\s*(-?\d{1,3}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)/i',
+        '/^(-?\d{1,3}(?:\.\d+)?)\s*[,;\s]\s*(-?\d{1,3}(?:\.\d+)?)$/',
+    ];
+    foreach ($patrones as $patron) {
+        if (preg_match($patron, $texto, $m)) {
+            $latitud = (float) $m[1];
+            $longitud = (float) $m[2];
+            if ($latitud >= -90 && $latitud <= 90 && $longitud >= -180 && $longitud <= 180) {
+                return [round($latitud, 7), round($longitud, 7)];
+            }
+
+            return false;
+        }
+    }
+
+    return false;
+}
+
+// Enlace a Google Maps: por coordenadas si las hay; si no, buscando la direccion escrita.
+function prospectoUrlMapa(array $fila): string
+{
+    if ($fila['latitud'] !== null && $fila['longitud'] !== null && $fila['latitud'] !== '') {
+        $consulta = (float) $fila['latitud'] . ',' . (float) $fila['longitud'];
+    } elseif (trim((string) ($fila['direccion'] ?? '')) !== '') {
+        $consulta = trim((string) $fila['direccion']);
+    } else {
+        return '';
+    }
+
+    return 'https://www.google.com/maps/search/?api=1&query=' . rawurlencode($consulta);
 }
 
 function prospectoVendedores(PDO $pdo): array
@@ -196,7 +262,9 @@ function prospectoValidarDatos(array $entrada): array
     $errores = [];
     $datos = [
         'cliente' => prospectoTexto($entrada['cliente'] ?? ''),
+        'telefono' => prospectoTelefono($entrada['telefono'] ?? ''),
         'proyecto' => prospectoTexto($entrada['proyecto'] ?? ''),
+        'direccion' => prospectoTexto($entrada['direccion'] ?? ''),
         'tipo_obra' => prospectoTexto($entrada['tipo_obra'] ?? ''),
         'tipos_concreto' => prospectoTexto($entrada['tipos_concreto'] ?? ''),
         'competidor' => prospectoTexto($entrada['competidor'] ?? ''),
@@ -208,12 +276,27 @@ function prospectoValidarDatos(array $entrada): array
     if ($datos['cliente'] === '' || mb_strlen($datos['cliente']) > 150) {
         $errores[] = 'Escribe el cliente (maximo 150 caracteres).';
     }
+    if ($datos['telefono'] === false) {
+        $errores[] = 'El telefono debe tener 10 digitos (por ejemplo 614 123 4567).';
+        $datos['telefono'] = '';
+    }
     if ($datos['proyecto'] === '' || mb_strlen($datos['proyecto']) > 200) {
         $errores[] = 'Escribe el nombre del proyecto (maximo 200 caracteres).';
     }
     if (!in_array($datos['tipo_obra'], PROSPECTO_TIPOS_OBRA, true)) {
         $errores[] = 'Elige el tipo de obra.';
     }
+    if (mb_strlen($datos['direccion']) > 255) {
+        $errores[] = 'La direccion es muy larga (maximo 255 caracteres).';
+    }
+
+    $ubicacion = prospectoLeerUbicacion((string) ($entrada['ubicacion'] ?? ''));
+    if ($ubicacion === false) {
+        $errores[] = 'No entendi la ubicacion. Usa el boton "Usar mi ubicacion actual", o pega las coordenadas (28.6353, -106.0889) '
+            . 'o el enlace largo de Google Maps. Los enlaces cortos (maps.app.goo.gl) no sirven: abrelo y copia el de la barra de direcciones.';
+    }
+    $datos['latitud'] = $ubicacion[0] ?? null;
+    $datos['longitud'] = $ubicacion[1] ?? null;
     if (mb_strlen($datos['tipos_concreto']) > 200) {
         $errores[] = 'Los tipos de concreto son muy largos (maximo 200 caracteres).';
     }
@@ -231,38 +314,45 @@ function prospectoValidarDatos(array $entrada): array
     $datos['volumen_m3'] = round((float) $volumen, 2);
 
     if (trim((string) ($entrada['fecha_inicio'] ?? '')) !== '' && $datos['fecha_inicio'] === null) {
-        $errores[] = 'La fecha de inicio no es valida.';
+        $errores[] = 'La fecha de inicio de obra no es valida.';
     }
     if (trim((string) ($entrada['fecha_fin'] ?? '')) !== '' && $datos['fecha_fin'] === null) {
-        $errores[] = 'La fecha de fin no es valida.';
+        $errores[] = 'La fecha de fin de obra no es valida.';
     }
     if ($datos['fecha_inicio'] && $datos['fecha_fin'] && $datos['fecha_fin'] < $datos['fecha_inicio']) {
-        $errores[] = 'La fecha de fin no puede ser anterior a la de inicio.';
+        $errores[] = 'El fin de obra no puede ser anterior al inicio de obra.';
     }
 
     return [$datos, $errores];
 }
 
-// Valida un cambio de estatus. Devuelve [estatus, motivo, competidor, errores].
-function prospectoValidarEstatus(string $estatus, string $motivo, string $competidor): array
+// Valida un cambio de estatus. Devuelve [estatus, motivo, detalle del motivo, competidor, errores].
+function prospectoValidarEstatus(string $estatus, string $motivo, string $detalle, string $competidor): array
 {
     $errores = [];
     $motivo = prospectoTexto($motivo);
+    $detalle = prospectoTexto($detalle);
     $competidor = prospectoTexto($competidor);
 
     if (!isset(PROSPECTO_ESTATUS[$estatus])) {
-        return [$estatus, null, null, ['El estatus no es valido.']];
+        return [$estatus, null, null, null, ['El estatus no es valido.']];
     }
 
     if ($estatus === 'PERDIDA') {
         if (!in_array($motivo, PROSPECTO_MOTIVOS_PERDIDA, true)) {
             $errores[] = 'Elige el motivo por el que se perdio la obra.';
-        }
-        if ($motivo === PROSPECTO_MOTIVO_COMPETIDOR && $competidor === '') {
-            $errores[] = 'Escribe a que competidor se la dieron.';
+        } elseif ($motivo === PROSPECTO_MOTIVO_OTRO) {
+            if (mb_strlen($detalle) < 3) {
+                $errores[] = 'Escribe cual fue el motivo (en OTRO el detalle es obligatorio).';
+            } elseif (mb_strlen($detalle) > 150) {
+                $errores[] = 'El detalle del motivo es muy largo (maximo 150 caracteres).';
+            }
+        } else {
+            $detalle = '';
         }
     } else {
         $motivo = '';
+        $detalle = '';
     }
 
     if ($estatus === 'GANADA') {
@@ -271,7 +361,13 @@ function prospectoValidarEstatus(string $estatus, string $motivo, string $compet
         $competidor = '';
     }
 
-    return [$estatus, $motivo !== '' ? $motivo : null, $competidor !== '' ? $competidor : null, $errores];
+    return [
+        $estatus,
+        $motivo !== '' ? $motivo : null,
+        $detalle !== '' ? $detalle : null,
+        $competidor !== '' ? $competidor : null,
+        $errores,
+    ];
 }
 
 function prospectoDiasSinMovimiento(array $fila): int
@@ -352,7 +448,7 @@ function prospectoResumen(array $filas): array
             $motivos[$motivo] ??= ['obras' => 0, 'm3' => 0.0];
             $motivos[$motivo]['obras']++;
             $motivos[$motivo]['m3'] += $m3;
-            if ($fila['motivo_perdida'] === PROSPECTO_MOTIVO_COMPETIDOR && $fila['competidor']) {
+            if ($fila['competidor']) {
                 $competidores[$fila['competidor']] ??= ['obras' => 0, 'm3' => 0.0];
                 $competidores[$fila['competidor']]['obras']++;
                 $competidores[$fila['competidor']]['m3'] += $m3;

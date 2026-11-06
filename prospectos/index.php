@@ -50,7 +50,11 @@ foreach ($filas as $f) {
         'id_usuario' => (int) $f['id_usuario'],
         'vendedor' => $f['vendedor'],
         'cliente' => $f['cliente'],
+        'telefono' => $f['telefono'],
         'proyecto' => $f['proyecto'],
+        'direccion' => $f['direccion'],
+        'latitud' => $f['latitud'] !== null ? (float) $f['latitud'] : null,
+        'longitud' => $f['longitud'] !== null ? (float) $f['longitud'] : null,
         'tipo_obra' => $f['tipo_obra'],
         'tipos_concreto' => $f['tipos_concreto'],
         'volumen_m3' => (float) $f['volumen_m3'],
@@ -60,6 +64,7 @@ foreach ($filas as $f) {
         'etiqueta_estatus' => prospectoEtiquetaEstatus($f['estatus']),
         'competidor' => $f['competidor'],
         'motivo_perdida' => $f['motivo_perdida'],
+        'motivo_detalle' => $f['motivo_detalle'],
         'comentarios' => $f['comentarios'],
     ];
 }
@@ -262,11 +267,12 @@ function h(?string $texto): string
                                                 <th>Tipo de obra</th>
                                                 <th>Concreto</th>
                                                 <th>m&sup3;</th>
-                                                <th>Inicio</th>
-                                                <th>Fin</th>
+                                                <th>Inicio de obra</th>
+                                                <th>Fin de obra</th>
                                                 <th>Estatus</th>
                                                 <th>Competidor</th>
                                                 <th>Ultimo movimiento</th>
+                                                <th>Ubicacion</th>
                                                 <th></th>
                                             </tr>
                                         </thead>
@@ -278,7 +284,12 @@ function h(?string $texto): string
                                             ?>
                                                 <tr>
                                                     <?php if ($esAdmin): ?><td><?= h($f['vendedor']) ?></td><?php endif; ?>
-                                                    <td><b><?= h($f['cliente']) ?></b></td>
+                                                    <td>
+                                                        <b><?= h($f['cliente']) ?></b>
+                                                        <?php if ($f['telefono']): ?>
+                                                            <div class="small text-nowrap"><a href="tel:+52<?= h($f['telefono']) ?>" title="Llamar"><i class="bi bi-telephone-fill"></i> <?= h($f['telefono']) ?></a></div>
+                                                        <?php endif; ?>
+                                                    </td>
                                                     <td><?= h($f['proyecto']) ?></td>
                                                     <td><?= h($f['tipo_obra']) ?></td>
                                                     <td><?= h($f['tipos_concreto']) ?></td>
@@ -288,7 +299,7 @@ function h(?string $texto): string
                                                     <td data-search="<?= $f['estatus'] ?> <?= $abierta ? 'ABIERTA' : '' ?>">
                                                         <?= prospectoBadgeEstatus($f['estatus']) ?>
                                                         <?php if ($f['estatus'] === 'PERDIDA' && $f['motivo_perdida']): ?>
-                                                            <div class="small text-muted"><?= h($f['motivo_perdida']) ?></div>
+                                                            <div class="small text-muted"><?= h($f['motivo_perdida']) ?><?= $f['motivo_detalle'] ? ': ' . h($f['motivo_detalle']) : '' ?></div>
                                                         <?php endif; ?>
                                                     </td>
                                                     <td><?= h($f['competidor']) ?></td>
@@ -296,6 +307,13 @@ function h(?string $texto): string
                                                         <?= date('d/m/Y', strtotime($f['ultimo_movimiento'])) ?>
                                                         <?php if ($olvidada): ?>
                                                             <span class="badge text-bg-warning" title="Obra en proceso sin ningun movimiento">hace <?= $dias ?> dias</span>
+                                                        <?php endif; ?>
+                                                    </td>
+                                                    <td>
+                                                        <?php $urlMapa = prospectoUrlMapa($f); ?>
+                                                        <?= h($f['direccion']) ?>
+                                                        <?php if ($urlMapa !== ''): ?>
+                                                            <a href="<?= h($urlMapa) ?>" target="_blank" rel="noopener" class="text-nowrap" title="Abrir en Google Maps"><i class="bi bi-geo-alt-fill"></i> Ver mapa</a>
                                                         <?php endif; ?>
                                                     </td>
                                                     <td class="text-nowrap">
@@ -344,6 +362,10 @@ function h(?string $texto): string
                             <input class="form-control" type="text" name="cliente" id="obraCliente" maxlength="150" required>
                         </div>
                         <div class="col-md-6">
+                            <label class="form-label" for="obraTelefono"><b>Telefono de contacto</b></label>
+                            <input class="form-control" type="tel" name="telefono" id="obraTelefono" maxlength="20" inputmode="tel" placeholder="10 digitos, ej. 614 123 4567">
+                        </div>
+                        <div class="col-md-6">
                             <label class="form-label" for="obraProyecto"><b>Nombre del proyecto</b></label>
                             <input class="form-control" type="text" name="proyecto" id="obraProyecto" maxlength="200" required>
                         </div>
@@ -356,20 +378,32 @@ function h(?string $texto): string
                                 <?php endforeach; ?>
                             </select>
                         </div>
-                        <div class="col-md-6">
+                        <div class="<?= $esAdmin ? 'col-md-6' : 'col-12' ?>">
                             <label class="form-label" for="obraConcreto"><b>Tipos de concreto</b></label>
                             <input class="form-control" type="text" name="tipos_concreto" id="obraConcreto" maxlength="200" placeholder="Ej. F'C 250 BOMBEABLE, F'C 150">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" for="obraDireccion"><b>Direccion de la obra</b></label>
+                            <input class="form-control" type="text" name="direccion" id="obraDireccion" maxlength="255" placeholder="Calle, numero, colonia, ciudad">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" for="obraUbicacion"><b>Ubicacion en Google Maps</b></label>
+                            <div class="input-group">
+                                <input class="form-control" type="text" name="ubicacion" id="obraUbicacion" placeholder="Coordenadas o enlace de Google Maps">
+                                <button type="button" class="btn btn-outline-primary" id="btnUbicacionActual" title="Toma la ubicacion de este telefono o computadora"><i class="bi bi-crosshair"></i> Usar mi ubicacion actual</button>
+                            </div>
+                            <div class="form-text" id="ayudaUbicacion">Estando en la obra, toca el boton. O pega las coordenadas (28.6353, -106.0889) o el enlace largo de Google Maps.</div>
                         </div>
                         <div class="col-md-3">
                             <label class="form-label" for="obraVolumen"><b>Volumen total (m&sup3;)</b></label>
                             <input class="form-control" type="number" name="volumen_m3" id="obraVolumen" min="0.01" max="500000" step="0.01" required>
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label" for="obraInicio"><b>Inicio</b></label>
+                            <label class="form-label" for="obraInicio"><b>Inicio de obra</b></label>
                             <input class="form-control" type="date" name="fecha_inicio" id="obraInicio">
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label" for="obraFin"><b>Fin</b></label>
+                            <label class="form-label" for="obraFin"><b>Fin de obra</b></label>
                             <input class="form-control" type="date" name="fecha_fin" id="obraFin">
                         </div>
                         <div class="col-md-3" id="bloqueEstatusObra">
@@ -434,6 +468,10 @@ function h(?string $texto): string
                                     <?php endforeach; ?>
                                 </select>
                             </div>
+                            <div class="col-12 d-none" id="bloqueMotivoDetalle">
+                                <label class="form-label" for="segMotivoDetalle"><b>Cual fue el motivo</b> <span class="text-muted small">(obligatorio en "Otro")</span></label>
+                                <input class="form-control" type="text" id="segMotivoDetalle" maxlength="150">
+                            </div>
                             <div class="col-md-12 d-none" id="bloqueCompetidor">
                                 <label class="form-label" for="segCompetidor"><b>Competidor</b> <span class="text-muted small" id="segCompetidorAyuda"></span></label>
                                 <input class="form-control" type="text" id="segCompetidor" maxlength="80" list="listaCompetidores">
@@ -466,7 +504,7 @@ function h(?string $texto): string
         $(document).ready(function() {
             const csrfToken = <?= json_encode($_SESSION['csrf_prospectos']) ?>;
             const OBRAS = <?= json_encode($obrasJs ?: new stdClass(), $flagsJs) ?>;
-            const MOTIVO_COMPETIDOR = <?= json_encode(PROSPECTO_MOTIVO_COMPETIDOR, $flagsJs) ?>;
+            const MOTIVO_OTRO = <?= json_encode(PROSPECTO_MOTIVO_OTRO, $flagsJs) ?>;
             const ESTATUS_ABIERTOS = <?= json_encode(PROSPECTO_ESTATUS_ABIERTOS) ?>;
             const esAdmin = <?= $esAdmin ? 'true' : 'false' ?>;
             const urlControlador = '../controller/controller_prospecto.php';
@@ -493,7 +531,7 @@ function h(?string $texto): string
                 const tabla = $('#tablaObras').DataTable({
                     order: [[o + 9, 'desc']],
                     pageLength: 25,
-                    columnDefs: [{ orderable: false, targets: [o + 10] }],
+                    columnDefs: [{ orderable: false, targets: [o + 11] }],
                     language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' }
                 });
                 $('#filtroVendedor').on('change', function() {
@@ -524,7 +562,11 @@ function h(?string $texto): string
                 }
                 if (obra) {
                     document.getElementById('obraCliente').value = obra.cliente;
+                    document.getElementById('obraTelefono').value = obra.telefono || '';
                     document.getElementById('obraProyecto').value = obra.proyecto;
+                    document.getElementById('obraDireccion').value = obra.direccion || '';
+                    document.getElementById('obraUbicacion').value = (obra.latitud !== null && obra.longitud !== null)
+                        ? obra.latitud + ', ' + obra.longitud : '';
                     document.getElementById('obraTipo').value = obra.tipo_obra;
                     document.getElementById('obraConcreto').value = obra.tipos_concreto;
                     document.getElementById('obraVolumen').value = obra.volumen_m3;
@@ -537,6 +579,33 @@ function h(?string $texto): string
             }
 
             document.getElementById('btnNuevaObra').addEventListener('click', () => abrirObra(null));
+
+            // Toma la ubicacion del dispositivo. En celular pide permiso la primera vez; solo funciona con https.
+            const ayudaUbicacion = document.getElementById('ayudaUbicacion');
+            const textoAyudaUbicacion = ayudaUbicacion.textContent;
+            document.getElementById('btnUbicacionActual').addEventListener('click', function() {
+                const boton = this;
+                if (!navigator.geolocation) {
+                    ayudaUbicacion.textContent = 'Este navegador no puede dar la ubicacion. Pega las coordenadas o el enlace de Google Maps.';
+                    return;
+                }
+                boton.disabled = true;
+                ayudaUbicacion.textContent = 'Buscando tu ubicacion...';
+                navigator.geolocation.getCurrentPosition(function(posicion) {
+                    document.getElementById('obraUbicacion').value =
+                        posicion.coords.latitude.toFixed(7) + ', ' + posicion.coords.longitude.toFixed(7);
+                    ayudaUbicacion.textContent = 'Ubicacion tomada (precision de unos ' + Math.round(posicion.coords.accuracy) + ' m).';
+                    boton.disabled = false;
+                }, function(error) {
+                    ayudaUbicacion.textContent = error.code === 1
+                        ? 'No diste permiso para usar la ubicacion. Activalo en el navegador o pega las coordenadas.'
+                        : 'No se pudo obtener la ubicacion. Intenta de nuevo o pega las coordenadas.';
+                    boton.disabled = false;
+                }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+            });
+            document.getElementById('modalObra').addEventListener('show.bs.modal', function() {
+                ayudaUbicacion.textContent = textoAyudaUbicacion;
+            });
 
             formObra.addEventListener('submit', function(evento) {
                 evento.preventDefault();
@@ -567,8 +636,9 @@ function h(?string $texto): string
                 const ganada = segEstatus.value === 'GANADA';
                 document.getElementById('bloqueMotivo').classList.toggle('d-none', !perdida);
                 document.getElementById('bloqueCompetidor').classList.toggle('d-none', ganada);
+                document.getElementById('bloqueMotivoDetalle').classList.toggle('d-none', !(perdida && segMotivo.value === MOTIVO_OTRO));
                 document.getElementById('segCompetidorAyuda').textContent =
-                    (perdida && segMotivo.value === MOTIVO_COMPETIDOR) ? '(obligatorio: a quien se la dieron)' : '(si lo conoces)';
+                    perdida ? '(si se la llevo alguno, cual)' : '(si lo conoces)';
             }
             segEstatus.addEventListener('change', ajustarCamposEstatus);
             segMotivo.addEventListener('change', ajustarCamposEstatus);
@@ -611,6 +681,7 @@ function h(?string $texto): string
                     + Number(obra.volumen_m3).toLocaleString('es-MX', { maximumFractionDigits: 2 }) + ' m³';
                 segEstatus.value = obra.estatus;
                 segMotivo.value = obra.motivo_perdida || '';
+                document.getElementById('segMotivoDetalle').value = obra.motivo_detalle || '';
                 document.getElementById('segCompetidor').value = obra.estatus === 'GANADA' ? '' : (obra.competidor || '');
                 document.getElementById('segNota').value = '';
                 ajustarCamposEstatus();
@@ -638,6 +709,7 @@ function h(?string $texto): string
                     id_prospecto: document.getElementById('segId').value,
                     estatus: segEstatus.value,
                     motivo_perdida: segMotivo.value,
+                    motivo_detalle: document.getElementById('segMotivoDetalle').value,
                     competidor: document.getElementById('segCompetidor').value,
                     nota: document.getElementById('segNota').value
                 }).then(respuesta => {
