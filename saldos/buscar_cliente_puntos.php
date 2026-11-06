@@ -28,23 +28,33 @@ if (!rateLimitPermitir('saldos_consulta', 15, 60)) {
 }
 
 $telefono = preg_replace('/[^0-9]/', '', $_POST['telefono'] ?? '');
+$idClienteQr = filter_var($_POST['id_cliente_qr'] ?? null, FILTER_VALIDATE_INT) ?: 0;
 
-if (strlen($telefono) !== 10) {
+if ($idClienteQr <= 0 && strlen($telefono) !== 10) {
     echo json_encode([
         'success' => false,
-        'message' => 'Ingresa un teléfono válido de 10 dígitos',
+        'message' => 'Ingresa un teléfono válido de 10 dígitos o escanea tu credencial',
     ]);
     exit;
 }
 
-$stmtCliente = $pdo->prepare("
-    SELECT id_cliente, nombres, apellido_p, telefono 
-    FROM tb_clientes
-    WHERE telefono = ? AND estatus = 1
-    LIMIT 1
-");
-
-$stmtCliente->execute([$telefono]);
+if ($idClienteQr > 0) {
+    $stmtCliente = $pdo->prepare("
+        SELECT id_cliente, nombres, apellido_p, telefono
+        FROM tb_clientes
+        WHERE id_cliente = ? AND estatus = 1
+        LIMIT 1
+    ");
+    $stmtCliente->execute([$idClienteQr]);
+} else {
+    $stmtCliente = $pdo->prepare("
+        SELECT id_cliente, nombres, apellido_p, telefono
+        FROM tb_clientes
+        WHERE telefono = ? AND estatus = 1
+        LIMIT 1
+    ");
+    $stmtCliente->execute([$telefono]);
+}
 
 $cliente = $stmtCliente->fetch(PDO::FETCH_ASSOC);
 
@@ -87,24 +97,6 @@ if ($fechaVencimiento) {
         ->format('d/m/Y');
 }
 
-// $stmtHistorial = $pdo->prepare("
-//     SELECT
-//         folio_remision,
-//         volumen,
-//         minutos_colado,
-//         puntos,
-//         DATE_FORMAT(hora_fin, '%d/%m/%Y') AS fecha
-//     FROM tb_remisiones
-//     WHERE telefono = ?
-//     AND estatus = 'FINALIZADO'
-//     ORDER BY hora_fin DESC
-//     LIMIT 10
-// ");
-
-// $stmtHistorial->execute([$telefono]);
-
-// $historial = $stmtHistorial->fetchAll(PDO::FETCH_ASSOC);
-
 echo json_encode([
     'success' => true,
     'nombre' => $cliente['nombres'],
@@ -112,5 +104,4 @@ echo json_encode([
     'puntos' => $puntos['total_puntos'] ?? 0,
     'fecha_vencimiento' => $fechaVencimiento,
     'fecha_vencimiento_texto' => $fechaVencimientoTexto,
-    // 'historial' => $historial,
 ]);

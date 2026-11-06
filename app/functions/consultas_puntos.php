@@ -33,3 +33,19 @@ function obtenerIdClienteTelefono($telefono)
 
     return $cliente['id_cliente'];
 }
+
+function obtenerClienteActivoPorId(int $idCliente): array
+{
+    global $pdo;
+
+    $stmt = $pdo->prepare("SELECT id_cliente, telefono FROM tb_clientes WHERE id_cliente = ? AND estatus = 1 LIMIT 1");
+    $stmt->execute([$idCliente]);
+
+    $cliente = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$cliente) {
+        throw new Exception("Cliente no encontrado");
+    }
+
+    return $cliente;
+}

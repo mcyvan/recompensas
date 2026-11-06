@@ -1,0 +1,6 @@
+UPDATE tb_ventas_empresa
+SET es_concreto = CASE
+    WHEN UPPER(TRIM(articulo)) REGEXP '^(AMANUFACTURADA CONCRETO|CONCRETO|MORTERO|TERMOC|THERMO)'
+        THEN 1
+    ELSE 0
+END;

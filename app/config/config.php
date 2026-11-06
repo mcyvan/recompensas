@@ -13,6 +13,8 @@ if (!is_file($configFile)) {
 }
 
 $config = require $configFile;
+$mailConfigFile = __DIR__ . '/mail.local.php';
+$MAIL_CONFIG = is_file($mailConfigFile) ? require $mailConfigFile : [];
 
 $dsn = sprintf(
     'mysql:host=%s;dbname=%s;charset=utf8mb4',
@@ -40,4 +42,8 @@ try {
 $URL = $config['url'];
 define('SSO_LOGISTICA_SECRET', $config['sso_logistica_secret'] ?? '');
 define('LOGISTICA_LOGIN_URL', $config['logistica_login_url'] ?? '/logistica/login');
+// Cookie (independiente de la sesión de PHP) que recuerda si el último login
+// de este navegador debe volver al login de LOGISTICA cuando la sesión
+// caduque. Ver app/functions/auth.php::verificarSesion().
+define('COOKIE_ORIGEN_LOGIN', 'recompensas_origen_login');
 date_default_timezone_set('America/Mexico_City');

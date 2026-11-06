@@ -13,6 +13,8 @@ session_start();
 // ===============================
 $id_premio          = $_POST['id_premio'];
 $premio             = strtoupper(trim($_POST['premio']));
+$codigo             = strtoupper(trim($_POST['codigo'] ?? ''));
+$codigo             = $codigo !== '' ? mb_substr($codigo, 0, 50) : null;
 $id_categoria       = strtoupper(trim($_POST['id_categoria']));
 $puntos_requeridos  = intval($_POST['puntos_requeridos']);
 $stock              = intval($_POST['stock']);
@@ -248,6 +250,7 @@ if (isset($_FILES['imagen']) && $_FILES['imagen']['error'] == 0) {
 $sql = "UPDATE tb_premios 
         SET
             premio = :premio,
+            codigo = :codigo,
             id_categoria = :id_categoria,
             puntos_requeridos = :puntos_requeridos,
             stock = :stock,
@@ -259,6 +262,7 @@ $sql = "UPDATE tb_premios
 $query = $pdo->prepare($sql);
 
 $query->bindParam(':premio', $premio);
+$query->bindParam(':codigo', $codigo);
 $query->bindParam(':id_categoria', $id_categoria);
 $query->bindParam(':puntos_requeridos', $puntos_requeridos);
 $query->bindParam(':stock', $stock);
