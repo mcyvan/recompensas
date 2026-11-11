@@ -49,8 +49,14 @@ const PROSPECTO_COMPETIDORES = [
 
 const PROSPECTO_NOMBRE_PROPIO = 'CONCRETOS AMERICAS';
 
-// Dias sin ningun movimiento para marcar una obra abierta como olvidada.
-const PROSPECTO_DIAS_SIN_MOVIMIENTO = 14;
+// Alertas de obras abiertas sin ningun movimiento (cambio de estatus o nota). Se miden en dias exactos:
+// 1 semana, 1 semana y media y 2 semanas. Cada nivel sustituye al anterior.
+// 'etiqueta' va en la pantalla; 'color' es el color de Bootstrap; 'hex' y 'tinte' se usan en la pantalla y el Excel.
+const PROSPECTO_ALERTAS = [
+    1 => ['dias' => 7, 'etiqueta' => '1 semana sin movimiento', 'corta' => '1 semana', 'color' => 'warning', 'hex' => '#f5b301', 'tinte' => '#fff6d6'],
+    2 => ['dias' => 10.5, 'etiqueta' => '1 semana y media sin movimiento', 'corta' => '1 semana y media', 'color' => 'orange', 'hex' => '#fd7e14', 'tinte' => '#ffe5cf'],
+    3 => ['dias' => 14, 'etiqueta' => '2 semanas o mas sin movimiento', 'corta' => '2 semanas o mas', 'color' => 'danger', 'hex' => '#dc3545', 'tinte' => '#f9d6d9'],
+];
 
 function prospectoEsAdministracion(): bool
 {
@@ -377,12 +383,77 @@ function prospectoDiasSinMovimiento(array $fila): int
     return $ultimo ? max(0, (int) floor((time() - $ultimo) / 86400)) : 0;
 }
 
+// Nivel de alerta de una obra: 0 = sin alerta (o ya cerrada), 1, 2 o 3 segun PROSPECTO_ALERTAS.
+function prospectoNivelAlerta(array $fila, ?int $ahora = null): int
+{
+    if (!in_array($fila['estatus'], PROSPECTO_ESTATUS_ABIERTOS, true)) {
+        return 0;
+    }
+
+    $ultimo = strtotime((string) $fila['ultimo_movimiento']);
+    if (!$ultimo) {
+        return 0;
+    }
+
+    $dias = (($ahora ?? time()) - $ultimo) / 86400;
+    $nivel = 0;
+    foreach (PROSPECTO_ALERTAS as $n => $alerta) {
+        if ($dias >= $alerta['dias']) {
+            $nivel = $n;
+        }
+    }
+
+    return $nivel;
+}
+
+// Numero para el globo rojo del menu: obras con alerta de todos (administracion) o solo las del vendedor.
+function prospectoAlertasMenu(PDO $pdo): int
+{
+    static $cache = null;
+
+    if ($cache === null) {
+        if (prospectoEsAdministracion()) {
+            $cache = prospectoContarAlertas($pdo, null);
+        } elseif (prospectoEsVendedor()) {
+            $cache = prospectoContarAlertas($pdo, (int) ($_SESSION['id_usuario_login'] ?? 0));
+        } else {
+            $cache = 0;
+        }
+    }
+
+    return $cache;
+}
+
+function prospectoAlertasVacias(): array
+{
+    return array_fill_keys(array_keys(PROSPECTO_ALERTAS), 0);
+}
+
+// Cuantas obras abiertas de un vendedor (null = todos) tienen alguna alerta; para el aviso del menu.
+function prospectoContarAlertas(PDO $pdo, ?int $idUsuario): int
+{
+    try {
+        $total = 0;
+        foreach (prospectoListar($pdo, $idUsuario) as $fila) {
+            if (prospectoNivelAlerta($fila) > 0) {
+                $total++;
+            }
+        }
+
+        return $total;
+    } catch (Throwable $e) {
+        // Si todavia no existe la tabla, simplemente no hay aviso.
+        return 0;
+    }
+}
+
 // Indicadores generales. Cierre = ganadas / (ganadas + perdidas), en numero de obras.
 function prospectoIndicadores(array $filas): array
 {
     $r = [
         'total' => count($filas), 'abiertas' => 0, 'ganadas' => 0, 'perdidas' => 0,
         'm3_abiertos' => 0.0, 'm3_ganados' => 0.0, 'm3_perdidos' => 0.0, 'olvidadas' => 0,
+        'alertas' => prospectoAlertasVacias(),
     ];
     foreach ($filas as $fila) {
         $m3 = (float) $fila['volumen_m3'];
@@ -395,8 +466,10 @@ function prospectoIndicadores(array $filas): array
         } else {
             $r['abiertas']++;
             $r['m3_abiertos'] += $m3;
-            if (prospectoDiasSinMovimiento($fila) >= PROSPECTO_DIAS_SIN_MOVIMIENTO) {
+            $nivel = prospectoNivelAlerta($fila);
+            if ($nivel > 0) {
                 $r['olvidadas']++;
+                $r['alertas'][$nivel]++;
             }
         }
     }
@@ -422,6 +495,7 @@ function prospectoResumen(array $filas): array
         $porVendedor[$vendedor] ??= [
             'obras' => 0, 'abiertas' => 0, 'ganadas' => 0, 'perdidas' => 0,
             'm3_abiertos' => 0.0, 'm3_ganados' => 0.0, 'm3_perdidos' => 0.0, 'olvidadas' => 0,
+            'alertas' => prospectoAlertasVacias(),
         ];
         $porVendedor[$vendedor]['obras']++;
         if ($estatus === 'GANADA') {
@@ -433,8 +507,10 @@ function prospectoResumen(array $filas): array
         } else {
             $porVendedor[$vendedor]['abiertas']++;
             $porVendedor[$vendedor]['m3_abiertos'] += $m3;
-            if (prospectoDiasSinMovimiento($fila) >= PROSPECTO_DIAS_SIN_MOVIMIENTO) {
+            $nivel = prospectoNivelAlerta($fila);
+            if ($nivel > 0) {
                 $porVendedor[$vendedor]['olvidadas']++;
+                $porVendedor[$vendedor]['alertas'][$nivel]++;
             }
         }
 

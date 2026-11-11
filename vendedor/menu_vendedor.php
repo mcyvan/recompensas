@@ -2,7 +2,9 @@
 require_once("../app/config/config.php");
 require_once("../app/functions/auth.php");
 require_once('../app/functions/consultas.php');
+require_once('../app/functions/prospectos.php');
 verificarSesion();
+$prospectosAlertas = prospectoAlertasMenu($pdo);
 
 if (isset($_SESSION['mensaje_registro_clientes_correcto'])) {
     $mensaje_registro_clientes_correcto = $_SESSION['mensaje_registro_clientes_correcto'];
@@ -84,6 +86,8 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
         .menu-vendedor-cuadricula .btn-square-lg { width: 100%; height: auto; aspect-ratio: 1 / 1; flex-direction: column; gap: 6px; }
         .menu-vendedor-cuadricula .btn-square-lg svg { width: 48px; height: 48px; }
         .menu-vendedor-cuadricula .btn-square-lg .bi-bullseye { font-size: 48px !important; }
+        .menu-vendedor-cuadricula .btn { position: relative; }
+        .menu-vendedor-aviso { position: absolute; top: 6px; right: 6px; min-width: 26px; height: 26px; padding: 0 7px; border-radius: 13px; background: #dc3545; color: #fff; font-size: 14px; font-weight: 700; line-height: 26px; text-align: center; box-shadow: 0 0 0 2px #fff; }
         .menu-vendedor-texto { order: 2; font-size: 15px; font-weight: 600; line-height: 1.1; }
     </style>
 </head>
@@ -171,6 +175,7 @@ if (isset($_SESSION['mensaje_registro_cliente_eliminado'])) {
                                         </div>
                                         <div class="text-center">
                                             <a href="../prospectos/index.php" class="btn btn-info btn-square-lg mt-2" title="Prospeccion de obras"><span class="menu-vendedor-texto">Prospectos</span>
+                                                <?php if ($prospectosAlertas > 0): ?><span class="menu-vendedor-aviso" title="Obras sin movimiento"><?= (int) $prospectosAlertas ?></span><?php endif; ?>
                                                 <i class="bi bi-bullseye" style="font-size: 64px; line-height: 1;"></i>
                                             </a>
                                         </div>

@@ -1,6 +1,8 @@
 <?php
 require_once __DIR__ . '/../functions/remisiones.php';
 $remisionesManualesDosificadorActivas = remisionesManualesDosificadorHabilitadas($pdo);
+require_once __DIR__ . '/../functions/prospectos.php';
+$prospectosAlertasMenu = prospectoAlertasMenu($pdo);
 ?>
 <aside class="app-sidebar bg-body-secondary shadow" data-bs-theme="dark">
   <!--begin::Sidebar Brand-->
@@ -72,7 +74,7 @@ $remisionesManualesDosificadorActivas = remisionesManualesDosificadorHabilitadas
           <li class="nav-item">
             <a href="../prospectos/index.php" class="nav-link">
               <i class="bi bi-bullseye"></i>
-              <p>PROSPECCION DE OBRAS</p>
+              <p>PROSPECCION DE OBRAS<?php if ($prospectosAlertasMenu > 0): ?> <span class="badge text-bg-danger ms-1" title="Obras sin movimiento"><?= (int) $prospectosAlertasMenu ?></span><?php endif; ?></p>
             </a>
           </li>
           <li class="nav-header">REMISIONES</li>
@@ -258,7 +260,7 @@ $remisionesManualesDosificadorActivas = remisionesManualesDosificadorHabilitadas
           <li class="nav-item">
             <a href="../prospectos/index.php" class="nav-link">
               <i class="bi bi-bullseye"></i>
-              <p>PROSPECCION DE OBRAS</p>
+              <p>PROSPECCION DE OBRAS<?php if ($prospectosAlertasMenu > 0): ?> <span class="badge text-bg-danger ms-1" title="Obras sin movimiento"><?= (int) $prospectosAlertasMenu ?></span><?php endif; ?></p>
             </a>
           </li>
           <li class="nav-header">PREMIOS</li>

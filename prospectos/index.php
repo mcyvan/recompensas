@@ -38,6 +38,7 @@ if ($resumen) {
         $resumen['por_vendedor'][$v['nombre']] ??= [
             'obras' => 0, 'abiertas' => 0, 'ganadas' => 0, 'perdidas' => 0,
             'm3_abiertos' => 0.0, 'm3_ganados' => 0.0, 'm3_perdidos' => 0.0, 'olvidadas' => 0,
+            'alertas' => prospectoAlertasVacias(),
         ];
     }
     ksort($resumen['por_vendedor']);
@@ -103,6 +104,20 @@ function h(?string $texto): string
         .pros-linea:last-child { padding-bottom: 0; }
         .pros-linea::before { content: ''; position: absolute; left: -7px; top: 3px; width: 11px; height: 11px; border-radius: 50%; background: #174a94; }
         .pros-nota { white-space: pre-wrap; }
+        .text-bg-orange { background-color: #fd7e14; color: #fff; }
+        .text-bg-warning.pros-alerta-badge { color: #3d2e00; }
+
+        /* Obras abiertas sin movimiento: barra de color a la izquierda y fondo tenue en toda la fila. */
+        <?php foreach (PROSPECTO_ALERTAS as $n => $a): ?>
+        .table > tbody > tr.pros-alerta-<?= $n ?> > * { --bs-table-bg-type: <?= $a['tinte'] ?>; --bs-table-accent-bg: <?= $a['tinte'] ?>; box-shadow: inset 0 0 0 9999px <?= $a['tinte'] ?> !important; }
+        .table > tbody > tr.pros-alerta-<?= $n ?> > *:first-child { border-left: 6px solid <?= $a['hex'] ?>; }
+        <?php endforeach; ?>
+
+        .pros-pildora { display: inline-flex; align-items: center; gap: 6px; border: 0; border-radius: 999px; padding: 3px 12px 3px 4px; font-size: .85rem; background: #f1f4f8; color: #172033; cursor: pointer; }
+        .pros-pildora b { display: inline-block; min-width: 26px; text-align: center; border-radius: 999px; padding: 1px 6px; color: #fff; }
+        .pros-pildora.activa { box-shadow: 0 0 0 2px #174a94; }
+        .pros-pildora.sin-clic { cursor: default; }
+        .pros-aviso { border-left-width: 6px; }
     </style>
 </head>
 <body class="layout-fixed sidebar-expand-lg sidebar-mini sidebar-collapse sidebar-mini-expand-feature bg-body-tertiary">
@@ -141,8 +156,37 @@ function h(?string $texto): string
                         <div class="col-6 col-lg"><div class="pros-metric ok"><small>Ganadas</small><strong><?= number_format($ind['ganadas']) ?></strong> <span class="text-muted"><?= m3Prospecto($ind['m3_ganados']) ?></span></div></div>
                         <div class="col-6 col-lg"><div class="pros-metric mal"><small>Perdidas</small><strong><?= number_format($ind['perdidas']) ?></strong> <span class="text-muted"><?= m3Prospecto($ind['m3_perdidos']) ?></span></div></div>
                         <div class="col-6 col-lg"><div class="pros-metric"><small>Cierre (ganadas de las cerradas)</small><strong><?= $ind['cierre'] === null ? '-' : number_format($ind['cierre'], 0) . '%' ?></strong></div></div>
-                        <div class="col-12 col-lg"><div class="pros-metric alerta"><small>Sin movimiento hace <?= PROSPECTO_DIAS_SIN_MOVIMIENTO ?>+ dias</small><strong><?= number_format($ind['olvidadas']) ?></strong></div></div>
+                        <div class="col-12 col-lg">
+                            <div class="pros-metric alerta">
+                                <small>Obras sin movimiento<?= $tabActivo === 'obras' ? ' (clic para filtrar)' : '' ?></small>
+                                <strong><?= number_format($ind['olvidadas']) ?></strong>
+                                <div class="d-flex flex-wrap gap-1 mt-1">
+                                    <?php foreach (PROSPECTO_ALERTAS as $n => $a): ?>
+                                        <button type="button" class="pros-pildora btn-filtro-alerta <?= $tabActivo === 'obras' ? '' : 'sin-clic' ?>" data-nivel="<?= $n ?>" title="<?= h($a['etiqueta']) ?>">
+                                            <b style="background:<?= $a['hex'] ?>"><?= (int) $ind['alertas'][$n] ?></b> <?= h($a['corta']) ?>
+                                        </button>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
+                        </div>
                     </div>
+
+                    <?php if ($ind['olvidadas'] > 0): ?>
+                        <?php $peor = $ind['alertas'][3] > 0 ? 3 : ($ind['alertas'][2] > 0 ? 2 : 1); ?>
+                        <div class="alert alert-<?= PROSPECTO_ALERTAS[$peor]['color'] === 'orange' ? 'warning' : PROSPECTO_ALERTAS[$peor]['color'] ?> pros-aviso d-flex align-items-center gap-2" role="alert" style="border-left-color: <?= PROSPECTO_ALERTAS[$peor]['hex'] ?>">
+                            <i class="bi bi-exclamation-triangle-fill fs-4"></i>
+                            <div>
+                                <?php if ($esAdmin): ?>
+                                    Hay <b><?= number_format($ind['olvidadas']) ?></b> <?= $ind['olvidadas'] === 1 ? 'obra abierta' : 'obras abiertas' ?> sin movimiento
+                                    (<?= (int) $ind['alertas'][3] ?> con 2 semanas o mas, <?= (int) $ind['alertas'][2] ?> con 1 semana y media, <?= (int) $ind['alertas'][1] ?> con 1 semana).
+                                <?php else: ?>
+                                    Tienes <b><?= number_format($ind['olvidadas']) ?></b> <?= $ind['olvidadas'] === 1 ? 'obra' : 'obras' ?> sin movimiento
+                                    (<?= (int) $ind['alertas'][3] ?> con 2 semanas o mas, <?= (int) $ind['alertas'][2] ?> con 1 semana y media, <?= (int) $ind['alertas'][1] ?> con 1 semana).
+                                    Registra una nota o actualiza el estatus en <b>Seguimiento</b> para quitar la alerta.
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    <?php endif; ?>
 
                     <?php if ($tabActivo === 'resumen' && $resumen): ?>
                         <?php
@@ -173,7 +217,15 @@ function h(?string $texto): string
                                                 <td class="text-end text-danger"><?= number_format($v['perdidas']) ?></td>
                                                 <td class="text-end text-danger"><?= number_format($v['m3_perdidos'], 0) ?></td>
                                                 <td class="text-end"><?= $cerradas > 0 ? number_format($v['ganadas'] * 100 / $cerradas, 0) . '%' : '-' ?></td>
-                                                <td class="text-end"><?= $v['olvidadas'] > 0 ? '<span class="badge text-bg-warning">' . $v['olvidadas'] . '</span>' : '0' ?></td>
+                                                <td class="text-end text-nowrap">
+                                                    <?php if ($v['olvidadas'] === 0): ?>
+                                                        0
+                                                    <?php else: ?>
+                                                        <?php foreach (PROSPECTO_ALERTAS as $n => $a): if ($v['alertas'][$n] > 0): ?>
+                                                            <span class="badge text-bg-<?= $a['color'] ?> pros-alerta-badge" title="<?= h($a['etiqueta']) ?>"><?= (int) $v['alertas'][$n] ?></span>
+                                                        <?php endif; endforeach; ?>
+                                                    <?php endif; ?>
+                                                </td>
                                             </tr>
                                         <?php endforeach; ?>
                                     </tbody>
@@ -254,6 +306,11 @@ function h(?string $texto): string
                                             <option value="<?= h($tipo) ?>"><?= h($tipo) ?></option>
                                         <?php endforeach; ?>
                                     </select>
+                                    <?php if ($esAdmin): ?>
+                                        <button type="button" class="btn btn-success btn-sm" id="btnExcelObras" title="Descarga las obras con los filtros que tengas puestos">
+                                            <i class="bi bi-file-earmark-excel"></i> Descargar Excel
+                                        </button>
+                                    <?php endif; ?>
                                 </div>
                             </div>
                             <div class="card-body p-2">
@@ -280,9 +337,9 @@ function h(?string $texto): string
                                             <?php foreach ($filas as $f):
                                                 $abierta = in_array($f['estatus'], PROSPECTO_ESTATUS_ABIERTOS, true);
                                                 $dias = prospectoDiasSinMovimiento($f);
-                                                $olvidada = $abierta && $dias >= PROSPECTO_DIAS_SIN_MOVIMIENTO;
+                                                $nivel = prospectoNivelAlerta($f);
                                             ?>
-                                                <tr>
+                                                <tr <?= $nivel > 0 ? 'class="pros-alerta-' . $nivel . '" data-alerta="' . $nivel . '"' : 'data-alerta="0"' ?>>
                                                     <?php if ($esAdmin): ?><td><?= h($f['vendedor']) ?></td><?php endif; ?>
                                                     <td>
                                                         <b><?= h($f['cliente']) ?></b>
@@ -305,8 +362,12 @@ function h(?string $texto): string
                                                     <td><?= h($f['competidor']) ?></td>
                                                     <td data-order="<?= strtotime($f['ultimo_movimiento']) ?>">
                                                         <?= date('d/m/Y', strtotime($f['ultimo_movimiento'])) ?>
-                                                        <?php if ($olvidada): ?>
-                                                            <span class="badge text-bg-warning" title="Obra en proceso sin ningun movimiento">hace <?= $dias ?> dias</span>
+                                                        <?php if ($nivel > 0): ?>
+                                                            <div>
+                                                                <span class="badge text-bg-<?= PROSPECTO_ALERTAS[$nivel]['color'] ?> pros-alerta-badge" title="<?= h(PROSPECTO_ALERTAS[$nivel]['etiqueta']) ?>">
+                                                                    <i class="bi bi-exclamation-triangle-fill"></i> hace <?= $dias ?> dias
+                                                                </span>
+                                                            </div>
                                                         <?php endif; ?>
                                                     </td>
                                                     <td>
@@ -543,6 +604,38 @@ function h(?string $texto): string
                 $('#filtroTipo').on('change', function() {
                     tabla.column(o + 2).search(this.value ? '^' + $.fn.dataTable.util.escapeRegex(this.value) + '$' : '', true, false).draw();
                 });
+
+                // Filtro por nivel de alerta (las pildoras de "Obras sin movimiento"): un clic filtra, otro lo quita.
+                let nivelAlerta = 0;
+                $.fn.dataTable.ext.search.push(function(settings, datos, indice) {
+                    if (settings.nTable.id !== 'tablaObras' || !nivelAlerta) {
+                        return true;
+                    }
+                    return Number(settings.aoData[indice].nTr.getAttribute('data-alerta')) === nivelAlerta;
+                });
+                $('.btn-filtro-alerta').on('click', function() {
+                    const nivel = Number(this.dataset.nivel);
+                    nivelAlerta = nivelAlerta === nivel ? 0 : nivel;
+                    $('.btn-filtro-alerta').removeClass('activa');
+                    if (nivelAlerta) {
+                        this.classList.add('activa');
+                    }
+                    tabla.draw();
+                });
+
+                // El Excel sale con los mismos filtros que tiene la pantalla.
+                const btnExcel = document.getElementById('btnExcelObras');
+                if (btnExcel) {
+                    btnExcel.addEventListener('click', function() {
+                        const filtros = new URLSearchParams({
+                            vendedor: document.getElementById('filtroVendedor').value,
+                            estatus: document.getElementById('filtroEstatus').value,
+                            tipo: document.getElementById('filtroTipo').value,
+                            alerta: nivelAlerta
+                        });
+                        window.location.href = 'exportar_excel.php?' + filtros.toString();
+                    });
+                }
             }
 
             // ---- Alta y edicion ----
