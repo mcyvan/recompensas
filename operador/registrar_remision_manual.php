@@ -2,6 +2,7 @@
 require_once("../app/config/config.php");
 require_once("../app/functions/auth.php");
 require_once("../app/functions/remisiones.php");
+require_once("../app/functions/conciliacion_ventas.php");
 verificarSesion();
 verificarPermisoRegistrarRemisionManual($pdo);
 
@@ -10,6 +11,9 @@ $mensaje_error = $_SESSION['mensaje_registro_remision_error'] ?? null;
 $mensaje_correcto = $_SESSION['mensaje_registro_remision_correcto'] ?? null;
 unset($_SESSION['mensaje_registro_remision_error'], $_SESSION['mensaje_registro_remision_correcto']);
 $operadores = obtenerOperadores($pdo);
+$plantasDisponibles = isset(columnasTabla($pdo, 'tb_remisiones')['planta_crm'])
+    ? obtenerPlantasConciliacion($pdo)
+    : [];
 ?>
 <!doctype html>
 <html lang="es">
@@ -112,6 +116,20 @@ $operadores = obtenerOperadores($pdo);
                                                         <?php endforeach; ?>
                                                     </select>
                                                 </div>
+
+                                                <?php if ($plantasDisponibles): ?>
+                                                    <div class="col-md-12">
+                                                        <label class="form-label"><b>Planta</b></label>
+                                                        <select name="planta_crm" id="plantaManual" class="form-control" required>
+                                                            <option value="">Seleccione planta</option>
+                                                            <?php foreach ($plantasDisponibles as $planta): ?>
+                                                                <option value="<?= htmlspecialchars($planta, ENT_QUOTES, 'UTF-8') ?>">
+                                                                    <?= htmlspecialchars($planta, ENT_QUOTES, 'UTF-8') ?>
+                                                                </option>
+                                                            <?php endforeach; ?>
+                                                        </select>
+                                                    </div>
+                                                <?php endif; ?>
 
                                                 <div class="col-md-4">
                                                     <label class="form-label"><b>Inicio descarga</b></label>
@@ -318,11 +336,16 @@ $operadores = obtenerOperadores($pdo);
             const minutos = obtenerMinutosManual();
             const folio = remisionManual.value || "Sin folio";
             const telefono = telefonoManual.value || "Sin telefono";
+            const plantaManual = document.getElementById("plantaManual");
+            const lineaPlanta = plantaManual && plantaManual.value
+                ? "Planta: <b>" + plantaManual.value + "</b><br>"
+                : "";
 
             Swal.fire({
                 title: "Confirmar registro manual",
                 html: "Se registrara la remision <b>" + folio + "</b><br>" +
                     "Telefono: <b>" + telefono + "</b><br>" +
+                    lineaPlanta +
                     "Tiempo capturado: <b>" + minutos + " min</b>",
                 icon: "warning",
                 showCancelButton: true,

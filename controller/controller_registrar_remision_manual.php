@@ -3,6 +3,7 @@ include('../app/config/config.php');
 include("../app/functions/auth.php");
 include("../app/functions/consultas_puntos.php");
 include("../app/functions/remisiones.php");
+include_once("../app/functions/conciliacion_ventas.php");
 /** @var PDO $pdo */
 /** @var string $URL */
 verificarSesion();
@@ -54,6 +55,22 @@ try {
         throw new Exception("Selecciona un chofer valido");
     }
 
+    // Planta: obligatoria cuando el sistema ya conoce plantas (mismo catalogo que la edicion de remisiones).
+    $planta = strtoupper(trim((string) ($_POST['planta_crm'] ?? '')));
+    $plantasValidas = isset(columnasTabla($pdo, 'tb_remisiones')['planta_crm'])
+        ? obtenerPlantasConciliacion($pdo)
+        : [];
+    if ($plantasValidas) {
+        if ($planta === '') {
+            throw new Exception("Selecciona la planta");
+        }
+        if (!in_array($planta, $plantasValidas, true)) {
+            throw new Exception("Planta no valida");
+        }
+    } else {
+        $planta = '';
+    }
+
     $hora_inicio = DateTime::createFromFormat('Y-m-d\TH:i', $hora_inicio_input);
     $hora_fin = DateTime::createFromFormat('Y-m-d\TH:i', $hora_fin_input);
 
@@ -96,6 +113,11 @@ try {
     if (isset(columnasTabla($pdo, 'tb_remisiones')['rol_captura'])) {
         $camposRemision[] = 'rol_captura';
         $valoresRemision[] = rolCapturaRemisionActual();
+    }
+
+    if ($planta !== '') {
+        $camposRemision[] = 'planta_crm';
+        $valoresRemision[] = $planta;
     }
 
     $placeholders = implode(', ', array_fill(0, count($camposRemision), '?'));
