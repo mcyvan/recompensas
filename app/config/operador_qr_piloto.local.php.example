@@ -1,0 +1,8 @@
+<?php
+
+// Copia este archivo como operador_qr_piloto.local.php (en la misma carpeta) y pon los
+// usuarios que van a probar la captura "solo QR". Con ['*'] la usan todos los operadores.
+// Si borras el archivo, todos vuelven a la pantalla de siempre.
+return [
+    'JLOPEZ',
+];

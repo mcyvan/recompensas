@@ -5,19 +5,26 @@ require_once('../app/functions/consultas.php');
 // Indicamos al navegador que la respuesta es JSON
 header('Content-Type: application/json; charset=utf-8');
 
-$numero = $_POST['numero'] ?? '';
+$numero = preg_replace('/\D/', '', (string) ($_POST['numero'] ?? ''));
+$idClienteQr = filter_var($_POST['id_cliente_qr'] ?? null, FILTER_VALIDATE_INT) ?: 0;
 
-if (empty($numero)) {
+if ($idClienteQr <= 0 && $numero === '') {
     echo json_encode([
         'success' => false,
-        'mensaje' => 'El número de teléfono es obligatorio.'
+        'mensaje' => 'El número de teléfono o QR del cliente es obligatorio.'
     ]);
     exit;
 }
 
+$cliente = false;
 
-// Supongamos que esta función busca en tu base de datos
-$cliente = obtenerDatosClientePorTelefono($numero);
+if ($idClienteQr > 0) {
+    $cliente = obtenerDatosClientePorId($idClienteQr);
+}
+
+if (!$cliente && $numero !== '') {
+    $cliente = obtenerDatosClientePorTelefono($numero);
+}
 
 if ($cliente) {
     echo json_encode([

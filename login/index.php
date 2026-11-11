@@ -9,6 +9,9 @@ session_start();
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
   <title>Inicio de Sesion</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="../app/img/marca/favicon-32.png?v=2" />
+  <link rel="icon" type="image/png" sizes="192x192" href="../app/img/marca/favicon-192.png?v=2" />
+  <link rel="apple-touch-icon" href="../app/img/marca/apple-touch-icon.png?v=2" />
   <!--begin::Primary Meta Tags-->
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="title" content="" />
@@ -39,6 +42,26 @@ session_start();
   <!--begin::Required Plugin(AdminLTE)-->
   <link rel="stylesheet" href="../app/templates/AdminLTE4/dist/css/adminlte.css" />
   <!--end::Required Plugin(AdminLTE)-->
+  <style>
+    .login-marca {
+      width: 180px;
+      height: 180px;
+      margin: 0 auto .75rem;
+      padding: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #fff;
+      border-radius: 50%;
+      box-shadow: 0 10px 28px rgba(15, 23, 42, .12);
+    }
+
+    .login-marca img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+  </style>
 </head>
 <!--end::Head-->
 <!--begin::Body-->
@@ -46,11 +69,14 @@ session_start();
 <body class="login-page bg-body-secondary">
   <div class="login-box">
     <div class="card card-outline card-primary">
-      <div class="card-header">
+      <div class="card-header text-center">
         <a
           href="#"
           class="link-dark text-center link-offset-2 link-opacity-100 link-opacity-50-hover">
-          <h1 class="mb-0"><b>Recompensas</b> Americas</h1>
+          <div class="login-marca">
+            <img src="../app/img/marca/logo_concretos_americas.png" alt="Concretos Americas">
+          </div>
+          <h1 class="mb-0 fs-4"><b>Recompensas</b> Americas</h1>
         </a>
       </div>
       <div class="card-body login-card-body">

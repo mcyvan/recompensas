@@ -40,9 +40,13 @@ try {
     $inicio = new DateTime($hora_inicio);
     $fin = new DateTime($hora_fin);
 
-    $diferencia = $inicio->diff($fin);
+    // Calcular con la fecha y hora completas. DateInterval::h solo contiene
+    // la porcion de horas restante y omite los dias completos del intervalo.
+    $minutos = (int) floor(($fin->getTimestamp() - $inicio->getTimestamp()) / 60);
 
-    $minutos = ($diferencia->h * 60) + $diferencia->i;
+    if ($minutos < 0) {
+        throw new Exception("La fecha de finalización no puede ser menor que la fecha de inicio");
+    }
 
     // 🏆 lógica de puntos
     $puntos = 0;
@@ -50,7 +54,11 @@ try {
     $volumen = (float) $remision['volumen'];
     $id_cliente = $remision['id_cliente'];
 
-    if ($minutos <= 45) {
+    // Sin cliente registrado no hay a quien abonar puntos: quedan en 0 y se
+    // recalculan cuando administracion liga el cliente a la remision.
+    $sinCliente = empty($id_cliente);
+
+    if ($minutos <= 45 && !$sinCliente) {
         $puntos = obtenerPuntos($volumen);
     }
 
@@ -64,7 +72,6 @@ try {
 SET hora_fin = ?, minutos_colado = ?, puntos = ?, estatus = 'FINALIZADO'
 WHERE id_remision = ?
   AND id_operador = ?
-  AND id_cliente = ?
   AND estatus = 'EN PROCESO'
     ");
 
@@ -73,22 +80,25 @@ WHERE id_remision = ?
         $minutos,
         $puntos,
         $id_remision,
-        $id_usuario,
-        $id_cliente
+        $id_usuario
     ]);
-    $stmt = $pdo->prepare("
+
+    if (!$sinCliente) {
+        $stmt = $pdo->prepare("
     INSERT INTO tb_movimientos_puntos
         (id_cliente, id_remision, tipo, puntos, fecha_vencimiento, observaciones)
     VALUES (?, ?, 'ACUMULACION', ?, '2026-12-20', ?)
 ");
 
-    $stmt->execute([$id_cliente, $id_remision, $puntos, $observacion]);
+        $stmt->execute([$id_cliente, $id_remision, $puntos, $observacion]);
+    }
 
 
     $pdo->commit();
 
-    $_SESSION['mensaje_registro_remision_correcto'] =
-        "Remisión finalizada en $minutos min. Puntos: $puntos";
+    $_SESSION['mensaje_registro_remision_correcto'] = $sinCliente
+        ? "Remisión finalizada en $minutos min. Cliente pendiente de registro."
+        : "Remisión finalizada en $minutos min. Puntos: $puntos";
 
     header('Location: ' . $URL . '/operador/menu_operador.php');
     exit();

@@ -101,6 +101,17 @@ $categorias = obtenerCategorias();
                                                 required>
 
                                             <label class="form-label">
+                                                <b>Código de producto</b>
+                                            </label>
+                                            <input
+                                                type="text"
+                                                class="form-control"
+                                                name="codigo"
+                                                maxlength="50"
+                                                placeholder="Opcional"
+                                                value="<?php echo htmlspecialchars((string) ($premios['codigo'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
+
+                                            <label class="form-label">
                                                 <b>Categoría</b>
                                             </label>
                                             <select name="id_categoria" class="form-control" required>

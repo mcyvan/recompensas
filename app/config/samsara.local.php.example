@@ -1,0 +1,7 @@
+<?php
+
+// Copia este archivo como samsara.local.php (en la misma carpeta) y pon la llave de la API de
+// Samsara (la misma que usa el proyecto logistica). Ese archivo no se sube a git.
+return [
+    'api_key' => 'PEGA_AQUI_LA_LLAVE_DE_SAMSARA',
+];
