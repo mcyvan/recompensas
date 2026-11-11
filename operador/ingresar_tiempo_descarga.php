@@ -211,8 +211,21 @@ if (operadorUsaFlujoQr()) {
                     <small id="qrInfo" class="d-block mt-2 text-muted">
                         Apunte la camara al QR.
                     </small>
+                    <div class="d-flex align-items-center gap-2 mt-2 flex-wrap">
+                        <button type="button" id="btnQrLinterna" class="btn btn-outline-warning btn-sm d-none">
+                            <i class="bi bi-lightbulb"></i> Linterna
+                        </button>
+                        <div id="bloqueQrZoom" class="d-none d-flex align-items-center gap-2 flex-grow-1">
+                            <i class="bi bi-zoom-in"></i>
+                            <input type="range" id="rangoQrZoom" class="form-range" aria-label="Zoom">
+                        </div>
+                    </div>
                 </div>
-                <div class="modal-footer">
+                <div class="modal-footer justify-content-between">
+                    <button type="button" id="btnQrFoto" class="btn btn-outline-primary">
+                        <i class="bi bi-camera"></i> Tomar foto del QR
+                    </button>
+                    <input type="file" id="inputQrFoto" accept="image/*" capture="environment" class="d-none">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                 </div>
             </div>
@@ -220,6 +233,8 @@ if (operadorUsaFlujoQr()) {
     </div>
 
     <?php include("../app/layout/footer_links.php"); ?>
+    <script src="../app/js/jsQR.js?v=1"></script>
+    <script src="../app/js/lector_qr.js?v=1"></script>
 
     <script>
         let telefonoValido = false;
@@ -245,9 +260,6 @@ if (operadorUsaFlujoQr()) {
         const metrosInfo = document.getElementById("metrosInfo");
 
         let qrModal = null;
-        let qrStream = null;
-        let qrDetector = null;
-        let qrEscaneando = false;
         let qrModo = "remision";
 
         const sinClienteCheck = document.getElementById("sin_cliente");
@@ -399,14 +411,7 @@ if (operadorUsaFlujoQr()) {
         }
 
         function detenerEscanerQr() {
-            qrEscaneando = false;
-
-            if (qrStream) {
-                qrStream.getTracks().forEach(track => track.stop());
-                qrStream = null;
-            }
-
-            qrVideo.srcObject = null;
+            LectorQr.detener();
         }
 
         function bloquearMetros() {
@@ -657,15 +662,6 @@ if (operadorUsaFlujoQr()) {
                 return;
             }
 
-            if (!("BarcodeDetector" in window)) {
-                Swal.fire({
-                    icon: "warning",
-                    title: "Camara QR no disponible",
-                    text: "Este navegador no soporta lectura QR directa. Puede capturar el folio manualmente."
-                });
-                return;
-            }
-
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
                 Swal.fire({
                     icon: "warning",
@@ -678,73 +674,10 @@ if (operadorUsaFlujoQr()) {
             try {
                 qrModal = qrModal || new bootstrap.Modal(modalQrElement);
                 qrModal.show();
-
-                qrDetector = qrDetector || new BarcodeDetector({
-                    formats: ["qr_code"]
-                });
-
-                // Sin pedir resolucion el navegador suele dar 640x480, insuficiente para un QR
-                // denso impreso con tinta. Se pide 1080p y enfoque continuo (si el equipo lo soporta).
-                qrStream = await navigator.mediaDevices.getUserMedia({
-                    video: {
-                        facingMode: {
-                            ideal: "environment"
-                        },
-                        width: {
-                            ideal: 1920
-                        },
-                        height: {
-                            ideal: 1080
-                        },
-                        advanced: [{
-                            focusMode: "continuous"
-                        }]
-                    },
-                    audio: false
-                });
-
-                qrVideo.srcObject = qrStream;
-                await qrVideo.play();
-
-                qrEscaneando = true;
-                qrInfo.innerHTML = "Buscando QR...";
-                qrInfo.className = "d-block mt-2 text-muted";
-
-                const escanear = async () => {
-                    if (!qrEscaneando) {
-                        return;
-                    }
-
-                    try {
-                        const codigos = await qrDetector.detect(qrVideo);
-
-                        if (codigos.length > 0) {
-                            if (qrModo === "cliente") {
-                                const datosCliente = extraerDatosQr(codigos[0].rawValue);
-                                const telefonoQr = datosCliente.telefono || (String(codigos[0].rawValue).match(/[0-9]{10}/) || [""])[0];
-                                const clienteDetectado = await validarTelefonoCapturado(telefonoQr, datosCliente.idCliente);
-                                qrInfo.innerHTML = clienteDetectado ? "Cliente detectado" : "No se encontro telefono valido";
-                                qrInfo.className = clienteDetectado ? "d-block mt-2 text-success" : "d-block mt-2 text-danger";
-                            } else {
-                                const datos = await aplicarDatosQr(codigos[0].rawValue);
-                                qrInfo.innerHTML = "QR detectado: " + (datos.remision || "sin remision");
-                                qrInfo.className = "d-block mt-2 text-success";
-                            }
-                            detenerEscanerQr();
-                            qrModal.hide();
-                            return;
-                        }
-                    } catch (error) {
-                        qrInfo.innerHTML = "No fue posible leer el QR. Intente acercar la camara.";
-                        qrInfo.className = "d-block mt-2 text-danger";
-                    }
-
-                    requestAnimationFrame(escanear);
-                };
-
-                requestAnimationFrame(escanear);
+                await LectorQr.iniciar(qrVideo, opcionesLectorQr);
             } catch (error) {
                 detenerEscanerQr();
+                qrModal.hide();
                 Swal.fire({
                     icon: "error",
                     title: "No se pudo abrir la camara",
@@ -753,6 +686,93 @@ if (operadorUsaFlujoQr()) {
             }
         }
 
+        // Lo que hace la pantalla cuando el lector (camara o foto) obtiene el texto de un QR.
+        async function alLeerTextoQr(texto) {
+            if (qrModo === "cliente") {
+                const datosCliente = extraerDatosQr(texto);
+                const telefonoQr = datosCliente.telefono || (String(texto).match(/[0-9]{10}/) || [""])[0];
+                const clienteDetectado = await validarTelefonoCapturado(telefonoQr, datosCliente.idCliente);
+                qrInfo.innerHTML = clienteDetectado ? "Cliente detectado" : "No se encontro telefono valido";
+                qrInfo.className = clienteDetectado ? "d-block mt-2 text-success" : "d-block mt-2 text-danger";
+            } else {
+                const datos = await aplicarDatosQr(texto);
+                qrInfo.innerHTML = "QR detectado: " + (datos.remision || "sin remision");
+                qrInfo.className = "d-block mt-2 text-success";
+            }
+            detenerEscanerQr();
+            qrModal.hide();
+            // Si el QR se lee mientras el modal todavia termina de abrir, Bootstrap ignora el hide().
+            setTimeout(() => {
+                if (modalQrElement.classList.contains("show")) {
+                    qrModal.hide();
+                }
+            }, 400);
+            return true;
+        }
+
+        const btnQrLinterna = document.getElementById("btnQrLinterna");
+        const rangoQrZoom = document.getElementById("rangoQrZoom");
+        const bloqueQrZoom = document.getElementById("bloqueQrZoom");
+        const btnQrFoto = document.getElementById("btnQrFoto");
+        const inputQrFoto = document.getElementById("inputQrFoto");
+
+        const opcionesLectorQr = {
+            alTexto: alLeerTextoQr,
+            alEstado: (mensaje, clase) => {
+                qrInfo.innerHTML = mensaje;
+                qrInfo.className = "d-block mt-2 " + clase;
+            },
+            btnLinterna: btnQrLinterna,
+            rangoZoom: rangoQrZoom,
+            bloqueZoom: bloqueQrZoom
+        };
+
+        btnQrLinterna.addEventListener("click", async function() {
+            const encendida = await LectorQr.alternarLinterna();
+            this.classList.toggle("active", encendida);
+        });
+
+        rangoQrZoom.addEventListener("input", function() {
+            LectorQr.ponerZoom(this.value);
+        });
+
+        // Respaldo: foto tomada con la camara normal del celular (mas resolucion que el video en vivo).
+        btnQrFoto.addEventListener("click", function() {
+            // El celular no abre su camara si el navegador todavia la esta usando.
+            detenerEscanerQr();
+            inputQrFoto.value = "";
+            inputQrFoto.click();
+        });
+
+        inputQrFoto.addEventListener("change", async function() {
+            let leido = false;
+            if (this.files && this.files[0]) {
+                try {
+                    leido = await LectorQr.leerFoto(this.files[0], opcionesLectorQr);
+                } catch (error) {
+                    qrInfo.innerHTML = "No se pudo leer la foto. Intente de nuevo.";
+                    qrInfo.className = "d-block mt-2 text-danger";
+                }
+            }
+
+            if (!leido) {
+                // Se reanuda la busqueda en vivo conservando el mensaje de la foto.
+                const mensaje = qrInfo.innerHTML;
+                const clase = qrInfo.className;
+                try {
+                    await LectorQr.iniciar(qrVideo, opcionesLectorQr);
+                } catch (error) {
+                    // Sin camara en vivo solo queda el boton de foto.
+                }
+                qrInfo.innerHTML = mensaje;
+                qrInfo.className = clase;
+            }
+        });
+
+        // Si el usuario cancela la camara del celular no llega "change": al volver se reanuda el video.
+        inputQrFoto.addEventListener("cancel", function() {
+            LectorQr.iniciar(qrVideo, opcionesLectorQr).catch(() => {});
+        });
         modalQrElement.addEventListener("hidden.bs.modal", detenerEscanerQr);
 
         /* ================= METROS ================= */
